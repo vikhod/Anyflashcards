@@ -1,0 +1,39 @@
+
+nyflashcardsbot             | "message":{
+                                        "message_id":1087,
+                                        "from":{
+                                            "id":436936182,"is_bot":false,"first_name":"Galimzan","username":"Galimzan","language_code":"ru"
+                                            },
+                                        "chat":{
+                                            "id":-520712711,"title":"Anyflashcards","type":"group","all_members_are_administrators":false
+                                            },
+                                        "date":1628168721,
+                                        "new_chat_participant":{"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina"},
+                                        "new_chat_member":{"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina"},
+                                        "new_chat_members":[{"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina"}]}}]
+
+anyflashcardsbot                  | 2021/08/13 12:00:57 getUpdates resp: {"ok":true,"result":[{"update_id":691478204,
+anyflashcardsbot                  | "message":{
+    "message_id":7,
+    "from":{"id":436936182,"is_bot":false,"first_name":"Galimzan","username":"Galimzan","language_code":"ru"},
+    "chat":{"id":-1001554138268,"title":"Anyflashcards","type":"supergroup"},
+    "date":1628856057,
+    "new_chat_participant":{"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina","language_code":"ru"},
+    "new_chat_member":     {"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina","language_code":"ru"},
+    "new_chat_members":[   {"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina","language_code":"ru"}]}}]}
+
+
+anyflashcardsbot                  | 2021/08/13 12:02:47 getUpdates resp: {"ok":true,"result":[{"update_id":691478205,
+anyflashcardsbot                  | "message":{
+    "message_id":8,
+    "from":{"id":436936182,"is_bot":false,"first_name":"Galimzan","username":"Galimzan","language_code":"ru"},
+    "chat":{"id":-1001554138268,"title":"Anyflashcards","type":"supergroup"},
+    "date":1628856167,
+    "left_chat_participant":{"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina","language_code":"ru"},
+    "left_chat_member":{"id":754217872,"is_bot":false,"first_name":"Godun","last_name":"Karina","language_code":"ru"}}}]}
+
+anyflashcardsbot                  | 2021/08/13 12:02:47 getUpdates req : map[offset:[691478205] timeout:[60]]
+anyflashcardsbot                  | 2021/08/13 12:02:47 getUpdates resp: [{UpdateID:691478205 Message:0xc0000c0780 EditedMessage:<nil> ChannelPost:<nil> EditedChannelPost:<nil> InlineQuery:<nil> ChosenInlineResult:<nil> CallbackQuery:<nil> ShippingQuery:<nil> PreCheckoutQuery:<nil>}]
+anyflashcardsbot                  | 2021/08/13 12:02:47 getChatMember resp: {"ok":true,"result":{"user":{"id":436936182,"is_bot":false,"first_name":"Galimzan","username":"Galimzan","language_code":"ru"},"status":"creator","is_anonymous":false}}
+anyflashcardsbot                  | 2021/08/13 12:02:47 getChatMember req : map[chat_id:[-1001554138268] user_id:[436936182]]
+anyflashcardsbot                  | 2021/08/13 12:02:47 getChatMember resp: {User:Galimzan Status:creator UntilDate:0 CanBeEdited:false CanChangeInfo:false CanPostMessages:false CanEditMessages:false CanDeleteMessages:false CanInviteUsers:false CanRestrictMembers:false CanPinMessages:false CanPromoteMembers:false CanSendMessages:false CanSendMediaMessages:false CanSendOtherMessages:false CanAddWebPagePreviews:false}

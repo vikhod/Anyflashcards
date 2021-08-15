@@ -1,0 +1,78 @@
+version: "3.9"
+services:
+
+#  anyflashcardsbot-postgres:
+#    image: "postgres:alpine"
+#    container_name: ${DB_SERVER}
+#    volumes: 
+#      - anyflashcardsbot-postgres:/var/lib/postgresql/data
+#    expose: 
+#      - ${DB_PORT}
+#    environment: 
+#      POSTGRES_DB: ${POSTGRES_DB}
+#      POSTGRES_USER: ${POSTGRES_USER}
+#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  anyflascardsbot-mongodb:
+    image: mongo
+    container_name: ${MONGO_SERVER}
+    volumes:
+      - anyflashcardsbot-mongodb:/var/lib/mongodb/data
+    expose:
+      - ${MONGO_PORT}
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+  
+  anyflascardsbot-mongodb-expres:
+    image: mongo-express
+    container_name: anyflascardsbot-mongodb-expres
+    expose:
+      - "8081"
+    environment: 
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_SERVER}:${MONGO_PORT}/
+    depends_on: 
+      - anyflascardsbot-mongodb
+
+  anyflashcardsbot:
+    build:
+      context: ../../.
+      dockerfile: build/package/Dockerfile
+    container_name: anyflashcardsbot
+    environment:
+      TOKEN: ${TOKEN}
+      SSLMODE: ${SSLMODE}
+      DB_SERVER: ${DB_SERVER}
+      DB_PORT: ${DB_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      NATIVE_GROUP_CHAT_ID: ${NATIVE_GROUP_CHAT_ID}
+      MONGO_SERVER: ${MONGO_SERVER}
+      MONGO_PORT: ${MONGO_PORT}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    depends_on:
+      - anyflascardsbot-mongodb
+#      - anyflashcardsbot-postgres  
+      
+  #anyflashcardsbot-adminer:
+  #  image: adminer
+  #  container_name: anyflashcardsbot-adminer
+  #  depends_on: 
+  #    - anyflashcardsbot-postgres
+  #  expose:
+  #    - "8080"
+  #  links:
+  #    - anyflashcardsbot-postgres
+
+
+    
+
+
+
+volumes:
+  anyflashcardsbot-postgres:
+  anyflashcardsbot-mongodb:

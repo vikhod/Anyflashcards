@@ -1,0 +1,5 @@
+export DB_SERVER=anyflashcardsbot-postgres
+export DB_PORT=5432
+export SSLMODE=disable
+export POSTGRES_DB=anyflashcardsbot
+export POSTGRES_USER=anyflashcardsbot
