@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/burke/nanomemo/supermemo"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -24,6 +25,11 @@ func downloadFile(URL, filePath string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
+
+		// Set up timeout
+		updateConfig := tgbotapi.NewUpdate(0)
+		updateConfig.Timeout = 60
+
 		return fmt.Errorf("received non 200 response code")
 	}
 
@@ -72,13 +78,8 @@ func copyFile(targerPath, destinationPath string) error {
 }
 */
 
-/*
-// Structure for vocabulary
-type Vocabulary struct {
-	word        []string
-	translation []string
-}
-*/
+// Set up timeout
+
 /*
 // Get file name and return vocabulary struct
 func csvToVocabMap(fileName string) (vocabulary map[string]string, err error) {
@@ -94,8 +95,11 @@ func csvToVocabMap(fileName string) (vocabulary map[string]string, err error) {
 
 	csvLines, err := csv.NewReader(file).ReadAll()
 	if err != nil {
-		return vocabulary, err
-	}
+
+	// Set up timeout
+	updateConfig := tgbotapi.NewUpdate(0)
+	updateConfig.Timeout = 60
+
 
 	for i := 1; i < len(csvLines); i++ {
 
@@ -111,16 +115,17 @@ func csvToVocabMap(fileName string) (vocabulary map[string]string, err error) {
 */
 
 type Dictionary struct {
-	ID      primitive.ObjectID `bson:"_id"`
-	Name    string             `bson:"name, omitempty"`
-	FactSet supermemo.FactSet  `bson:"factset, omitempty"`
-	Owner   string             `bson:"owner, omitempty"`
+	ID            primitive.ObjectID `bson:"_id"`
+	FilePath      string             `bson:"filePath"`
+	FactSet       supermemo.FactSet  `bson:"factSet"`
+	OwnerUsername string             `bson:"ownerUsername"`
+	OwnerID       int                `bson:"ownerId"`
 }
 
 func loadDictionary(csvPath string) (dictionary Dictionary) {
 
 	dictionary.ID = primitive.NewObjectID()
-	dictionary.Name = csvPath
+	dictionary.FilePath = csvPath
 	dictionary.FactSet = loadAllFacts(csvPath)
 
 	return dictionary

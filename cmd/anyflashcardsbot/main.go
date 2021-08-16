@@ -99,7 +99,7 @@ func main() {
 	}
 
 	// Create and fill default library in database
-	if err := updateDefaultLibrary(defaultLibraryDirPath); err != nil {
+	if err := updateDefaultLibrary(defaultLibraryDirPath, &bot.Self); err != nil {
 		log.Panic(err)
 	}
 
@@ -151,7 +151,7 @@ func main() {
 
 				if err := libraryCollection.FindOne(
 					context.TODO(),
-					bson.M{"owner": updateFrom(&update).UserName}).Decode(&dictionary); err != nil {
+					bson.M{"ownerId": updateFrom(&update).ID}).Decode(&dictionary); err != nil {
 					log.Panic(err)
 				}
 				libraryForReview[updateFrom(&update).UserName] = dictionary.FactSet
@@ -188,7 +188,7 @@ func main() {
 						downloadFile(fileDirectUrl, csvDictionaryPath)
 
 						// Push dict to postgress
-						err = addDictionary(csvDictionaryPath, update.Message.From.ID)
+						err = addDictionary(csvDictionaryPath, update.Message.From)
 						if err != nil {
 							log.Panic(err)
 						}

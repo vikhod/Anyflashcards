@@ -130,7 +130,7 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 			return err
 		}
 
-		addDictionary(defaultDictionaryPath, newUser.ID)
+		addDictionary(defaultDictionaryPath, newUser)
 
 		// Update user in database if existent
 	} else if err.Err() != mongo.ErrNoDocuments {
@@ -171,7 +171,7 @@ func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
 	return nil
 }
 
-func addDictionary(csvDictionaryPath string, ownerID int) error {
+func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 
 	dictionary := loadDictionary(csvDictionaryPath)
 
@@ -186,7 +186,7 @@ func addDictionary(csvDictionaryPath string, ownerID int) error {
 	_, err = libraryCollection.UpdateOne(
 		context.TODO(),
 		bson.M{"_id": id.InsertedID},
-		bson.M{"$set": bson.M{"owner": ownerID}},
+		bson.M{"$set": bson.D{{Key: "ownerId", Value: user.ID}, {Key: "ownerUsername", Value: user.UserName}}},
 	)
 	if err != nil {
 		return err
@@ -195,11 +195,11 @@ func addDictionary(csvDictionaryPath string, ownerID int) error {
 	return nil
 }
 
-func updateDefaultLibrary(defaultLibraryDirPath string) error {
+func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) error {
 
 	_, err := libraryCollection.DeleteMany(
 		context.TODO(),
-		bson.M{"owner": "anyflashcardsbot"},
+		bson.M{"ownerId": user.ID},
 	)
 	if err != nil {
 		return err
@@ -212,7 +212,7 @@ func updateDefaultLibrary(defaultLibraryDirPath string) error {
 
 	for _, csvDictionaryPath := range csvDictionariesPathes {
 
-		addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), 1)
+		addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), user)
 
 	}
 
