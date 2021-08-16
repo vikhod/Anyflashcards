@@ -1,23 +1,11 @@
 version: "3.9"
 services:
 
-#  anyflashcardsbot-postgres:
-#    image: "postgres:alpine"
-#    container_name: ${DB_SERVER}
-#    volumes: 
-#      - anyflashcardsbot-postgres:/var/lib/postgresql/data
-#    expose: 
-#      - ${DB_PORT}
-#    environment: 
-#      POSTGRES_DB: ${POSTGRES_DB}
-#      POSTGRES_USER: ${POSTGRES_USER}
-#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
   anyflascardsbot-mongodb:
     image: mongo
     container_name: ${MONGO_SERVER}
     volumes:
-      - anyflashcardsbot-mongodb:/var/lib/mongodb/data
+      - anyflashcardsbot-mongodb:/data/db
     expose:
       - ${MONGO_PORT}
     environment:
@@ -43,12 +31,6 @@ services:
     container_name: anyflashcardsbot
     environment:
       TOKEN: ${TOKEN}
-      SSLMODE: ${SSLMODE}
-      DB_SERVER: ${DB_SERVER}
-      DB_PORT: ${DB_PORT}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       NATIVE_GROUP_CHAT_ID: ${NATIVE_GROUP_CHAT_ID}
       MONGO_SERVER: ${MONGO_SERVER}
       MONGO_PORT: ${MONGO_PORT}
@@ -56,23 +38,6 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     depends_on:
       - anyflascardsbot-mongodb
-#      - anyflashcardsbot-postgres  
-      
-  #anyflashcardsbot-adminer:
-  #  image: adminer
-  #  container_name: anyflashcardsbot-adminer
-  #  depends_on: 
-  #    - anyflashcardsbot-postgres
-  #  expose:
-  #    - "8080"
-  #  links:
-  #    - anyflashcardsbot-postgres
-
-
-    
-
-
 
 volumes:
-  anyflashcardsbot-postgres:
   anyflashcardsbot-mongodb:

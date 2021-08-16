@@ -7,128 +7,12 @@ import (
 	"os"
 	"strconv"
 
-	//_ "github.com/lib/pq"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-/*
-var (
-	host     = os.Getenv("DB_SERVER")
-	port     = os.Getenv("DB_PORT")
-	user     = os.Getenv("POSTGRES_USER")
-	password = os.Getenv("POSTGRES_PASSWORD")
-	dbname   = os.Getenv("POSTGRES_DB")
-	sslmode  = os.Getenv("SSLMODE")
-)
-
-var dbInfo = fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=%s", host, port, user, password, dbname, sslmode)
-
-// Insert vocabulary map into base table
-func insertVocabMapToTable(vocabulary map[string]string, tablename string) error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return fmt.Errorf("cannot open postgres database: %v", err)
-	}
-
-	defer db.Close()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("cannot start transaction: %v", err)
-	}
-
-	defer tx.Commit()
-
-	// Create user vocabulary table if not exist
-	_, err = tx.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id SERIAL PRIMARY KEY, word TEXT, meaning TEXT)", tablename))
-	if err != nil {
-		return err
-	}
-
-	// Inset map to table
-	for word, meaning := range vocabulary {
-		_, err = tx.Exec(fmt.Sprintf("INSERT INTO %s (\"word\", \"meaning\") VALUES ('%s', '%s')", tablename, word, meaning))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}*/
-
-/*
-// Create table in base
-func createTable(tablename string) error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return fmt.Errorf("cannot open postgres database: %v", err)
-	}
-
-	defer db.Close()
-
-	_, err = db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s", tablename))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-*/
-/*
-// Drop table from base
-func dropTable(tablename string) error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return fmt.Errorf("cannot open postgres database: %v", err)
-	}
-
-	defer db.Close()
-
-	_, err = db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", tablename))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-*/
-/*
-// Prepare base for using
-func prepareBase() error {
-	db, err := sql.Open("postgres", dbInfo)
-	if err != nil {
-		return fmt.Errorf("cannot open postgres database: %v", err)
-	}
-
-	defer db.Close()
-
-	tx, err := db.Begin()
-	if err != nil {
-		return fmt.Errorf("cannot start transaction: %v", err)
-	}
-
-	defer tx.Commit()
-
-	// Create table user
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS student (id INTEGER PRIMARY KEY, name TEXT, vocabulary TEXT)")
-	if err != nil {
-		return err
-	}
-
-	// Create table security
-	_, err = tx.Exec("CREATE TABLE IF NOT EXISTS security (id INTEGER PRIMARY KEY, name TEXT, student BOOLEAN, spamer BOOLEAN, pentester BOOLEAN)")
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-*/
 
 var (
 	mongo_server                = os.Getenv("MONGO_SERVER")
@@ -324,5 +208,4 @@ func updateDefaultLibrary(defaultLibraryDirPath string) error {
 	}
 
 	return nil
-
 }
