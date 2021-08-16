@@ -61,7 +61,6 @@ var libraryForReview = map[string]supermemo.FactSet{}
 var countForReview = map[string]int{}
 var membership = map[int]string{}
 
-var defaultDictionary = "./configs/dictionaries/owsi.csv"
 var defaultLibraryDirPath = "./configs/dictionaries"
 
 func main() {
@@ -94,12 +93,6 @@ func main() {
 	// Set waiting bool
 	waitingForPushVocab := false
 
-	// Set native group chat id, used for security checking
-	//nativeGroupChatID, _ := strconv.ParseInt(os.Getenv("NATIVE_GROUP_CHAT_ID"), 10, 64)
-	//if err != nil {
-	//	log.Panic(err)
-	//}
-
 	// Connect to database
 	if err := connectMongoDb(); err != nil {
 		log.Panic(err)
@@ -111,23 +104,12 @@ func main() {
 	}
 
 	// Fill users map for security checking
-
 	if err := fillMembershipMap(); err != nil {
 		log.Panic(err)
 	}
 
-	/*
-		users, err := usersCollection.Find(context.TODO(), bson.M{})
-		for users.Next(context.TODO()) {
-			var user User
-			if err = users.Decode(&user); err != nil {
-				log.Panic(err)
-			}
-
-			membership[user.User.ID] = user.NativeChatMember.Status
-
-		}
-	*/
+	// Add anyflashcardsbot user to database
+	addNewUser(bot, &bot.Self)
 
 	// Go through each update that we're getting from Telegram.
 	for update := range updates {
@@ -148,24 +130,6 @@ func main() {
 			}
 			continue
 		}
-
-		/*
-			updateInitiatorUser := updateFrom(&update)
-			var chatConfigWithUser tgbotapi.ChatConfigWithUser
-			chatConfigWithUser.ChatID = nativeGroupChatID
-			chatConfigWithUser.UserID = updateInitiatorUser.ID
-
-			chatMember, err := bot.GetChatMember(chatConfigWithUser)
-			if err != nil {
-				log.Panic(err)
-			}
-
-			if validy := statuses[chatMember.Status]; validy != "valid" {
-
-				showMessage(bot, update, "You are not a member of @Anyflashcards group. Ask @Galimzan to add you.")
-				continue
-			} // check membership
-		*/
 
 		if update.Message != nil {
 
@@ -224,7 +188,7 @@ func main() {
 						downloadFile(fileDirectUrl, csvDictionaryPath)
 
 						// Push dict to postgress
-						err = addDictionary(csvDictionaryPath, update.Message.From.UserName)
+						err = addDictionary(csvDictionaryPath, update.Message.From.ID)
 						if err != nil {
 							log.Panic(err)
 						}

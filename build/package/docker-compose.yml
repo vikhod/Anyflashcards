@@ -1,6 +1,5 @@
 version: "3.9"
 services:
-
   anyflascardsbot-mongodb:
     image: mongo
     container_name: ${MONGO_SERVER}

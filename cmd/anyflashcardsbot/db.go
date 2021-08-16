@@ -78,6 +78,8 @@ func fillMembershipMap() error {
 	return nil
 }
 
+var defaultDictionaryPath = "./configs/dictionaries/owsi.csv"
+
 func addNewUsers(bot *tgbotapi.BotAPI, newUsers *[]tgbotapi.User) error {
 
 	for _, newUser := range *newUsers {
@@ -89,21 +91,25 @@ func addNewUsers(bot *tgbotapi.BotAPI, newUsers *[]tgbotapi.User) error {
 
 func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 
+	// Create struct for new user
 	var user User
 	user.ID = primitive.NewObjectID()
 	user.User = *newUser
 	user.NativeChatMember.Status = "member"
-	user.Dictionary = defaultDictionary
+	user.Dictionary = defaultDictionaryPath
 
+	// Create chat config for tgbot
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
 	chatConfigWithUser.ChatID = nativeGroupChatID
 	chatConfigWithUser.UserID = newUser.ID
 
+	// Get chat member info from native group
 	chatMember, err := bot.GetChatMember(chatConfigWithUser)
 	if err != nil {
 		log.Panic(err)
 	}
 
+	// Add user into database if user isn't existent
 	if err := usersCollection.FindOne(
 		context.TODO(),
 		bson.M{"user.id": &newUser.ID}); err.Err() == mongo.ErrNoDocuments {
@@ -124,6 +130,9 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 			return err
 		}
 
+		addDictionary(defaultDictionaryPath, newUser.ID)
+
+		// Update user in database if existent
 	} else if err.Err() != mongo.ErrNoDocuments {
 		_, err := usersCollection.UpdateOne(
 			context.TODO(),
@@ -162,7 +171,7 @@ func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
 	return nil
 }
 
-func addDictionary(csvDictionaryPath string, owner string) error {
+func addDictionary(csvDictionaryPath string, ownerID int) error {
 
 	dictionary := loadDictionary(csvDictionaryPath)
 
@@ -177,7 +186,7 @@ func addDictionary(csvDictionaryPath string, owner string) error {
 	_, err = libraryCollection.UpdateOne(
 		context.TODO(),
 		bson.M{"_id": id.InsertedID},
-		bson.M{"$set": bson.M{"owner": owner}},
+		bson.M{"$set": bson.M{"owner": ownerID}},
 	)
 	if err != nil {
 		return err
@@ -203,7 +212,7 @@ func updateDefaultLibrary(defaultLibraryDirPath string) error {
 
 	for _, csvDictionaryPath := range csvDictionariesPathes {
 
-		addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), "anyflashcardsbot")
+		addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), 1)
 
 	}
 
