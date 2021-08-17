@@ -57,8 +57,8 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-var libraryForReview = map[string]supermemo.FactSet{}
-var countForReview = map[string]int{}
+var libraryForReview = map[int]supermemo.FactSet{}
+var countForReview = map[int]int{}
 var membership = map[int]string{}
 
 var defaultLibraryDirPath = "./configs/dictionaries"
@@ -154,7 +154,8 @@ func main() {
 					bson.M{"ownerId": updateFrom(&update).ID}).Decode(&dictionary); err != nil {
 					log.Panic(err)
 				}
-				libraryForReview[updateFrom(&update).UserName] = dictionary.FactSet
+
+				libraryForReview[updateFrom(&update).ID] = dictionary.FactSet
 
 				// Newbie check
 
@@ -183,8 +184,8 @@ func main() {
 						}
 
 						// Make dir and download file
-						os.Mkdir(update.Message.From.UserName, os.ModePerm)
-						csvDictionaryPath := "./" + update.Message.From.UserName + "/" + update.Message.Document.FileName
+						os.Mkdir(string(rune(update.Message.From.ID)), os.ModePerm)
+						csvDictionaryPath := "./" + string(rune(updateFrom(&update).ID)) + "/" + update.Message.Document.FileName
 						downloadFile(fileDirectUrl, csvDictionaryPath)
 
 						// Push dict to postgress
@@ -324,8 +325,8 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 
 func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
-	forReview := libraryForReview[updateFrom(&update).UserName]
-	count := countForReview[updateFrom(&update).UserName]
+	forReview := libraryForReview[updateFrom(&update).ID]
+	count := countForReview[updateFrom(&update).ID]
 
 	if count < len(forReview) {
 
@@ -366,11 +367,11 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		msg.ReplyMarkup = quizKeyboard
 		bot.Send(msg)
 
-		countForReview[updateFrom(&update).UserName]++
+		countForReview[updateFrom(&update).ID]++
 
 	} else {
 
-		countForReview[updateFrom(&update).UserName] = 0
+		countForReview[updateFrom(&update).ID] = 0
 		showMessage(bot, update, "Finished!")
 		showHelp(bot, update)
 		/*
