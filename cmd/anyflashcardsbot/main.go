@@ -61,7 +61,7 @@ var libraryForReview = map[int]supermemo.FactSet{}
 var countForReview = map[int]int{}
 var membership = map[int]string{}
 
-var Stopwatch struct {
+type Stopwatch struct {
 	start time.Time
 	mark  time.Duration
 }
@@ -383,7 +383,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		//start := time.Now()
 
-		//quality := readQuality(bot, &update)
+		log.Printf("readQuality(&update): %v\n", readQuality(&update))
 
 	} else {
 
@@ -394,23 +394,44 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 }
 
-func readQuality(bot *tgbotapi.BotAPI, update *tgbotapi.Update) int {
+func readQuality(update *tgbotapi.Update) int {
 
-	var sw = Stopwatch
+	sw := stopwatch[updateFrom(update).ID]
 
 	if countForReview[updateFrom(update).ID] != 0 {
-
 		sw.mark = time.Since(sw.start)
 		sw.start = time.Now()
 
-		//stopwatch[updateFrom(&update)] = Stopwatch.
 	} else {
-
+		sw.mark = 0
 		sw.start = time.Now()
 	}
 
-	//stopwatch[updateFrom(&update)] =
+	log.Printf("sw.mark: %v\n", sw.mark)
 
-	return 0
+	stopwatch[updateFrom(update).ID] = sw
 
+	if update.CallbackQuery.Data == "correctAnswer" {
+
+		if sw.mark.Seconds() < 5 {
+			quality[updateFrom(update).ID] = 5
+
+		} else if sw.mark.Seconds() > 5 && sw.mark.Seconds() < 10 {
+			quality[updateFrom(update).ID] = 4
+
+		} else if sw.mark.Seconds() > 10 {
+			quality[updateFrom(update).ID] = 3
+		}
+
+	} else if update.CallbackQuery.Data != "correctAnswer" {
+
+		if sw.mark.Seconds() < 5 {
+			quality[updateFrom(update).ID] = 2
+
+		} else if sw.mark.Seconds() > 5 {
+			quality[updateFrom(update).ID] = 1
+		}
+	}
+
+	return quality[updateFrom(update).ID]
 }
