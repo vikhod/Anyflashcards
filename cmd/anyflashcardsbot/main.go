@@ -61,6 +61,14 @@ var libraryForReview = map[int]supermemo.FactSet{}
 var countForReview = map[int]int{}
 var membership = map[int]string{}
 
+var Stopwatch struct {
+	start time.Time
+	mark  time.Duration
+}
+
+var stopwatch = map[int]Stopwatch{}
+var quality = map[int]int{}
+
 var defaultLibraryDirPath = "./configs/dictionaries"
 
 func main() {
@@ -117,17 +125,23 @@ func main() {
 		// Check membership in native group
 		status := membership[updateFrom(&update).ID]
 		if statuses[status] == "" {
+
 			if err := addNewUser(bot, updateFrom(&update)); err != nil {
 				log.Panic(err)
 			}
+
 			if err := fillMembershipMap(); err != nil {
 				log.Panic(err)
 			}
+
 			continue
+
 		} else if statuses[status] != "valid" {
+
 			if err := fillMembershipMap(); err != nil {
 				log.Panic(err)
 			}
+
 			continue
 		}
 
@@ -157,11 +171,11 @@ func main() {
 
 				libraryForReview[updateFrom(&update).ID] = dictionary.FactSet
 
-				// Newbie check
-
 				showHelp(bot, update)
+
 			} else if command == "help" {
 				showHelp(bot, update)
+
 			} else if command == "settings" {
 				showSettings(bot, update)
 
@@ -234,7 +248,7 @@ func main() {
 				log.Printf("incorrectAnswer")
 				nextQuestion(bot, update)
 			}
-
+			// Newbie check
 			// Pressed key Settings
 			if callback == "settings" {
 				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "What do you want to set?")
@@ -334,16 +348,21 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		randomOfFour := rand.Intn(3)
 		randomAnswerArray := make([][]string, 4)
 		for i := range randomAnswerArray {
+
 			limiter := 0
+
 			if count < 3 {
 				limiter = 3
 			}
+
 			if count >= len(forReview)-3 {
 				limiter = -3
 			}
+
 			framer := count - randomOfFour + i + limiter
 			randomAnswerArray[i] = []string{forReview[framer].Answer, "incorrectAnswer"}
 		}
+
 		randomAnswerArray[randomOfFour] = []string{forReview[count].Answer, "correctAnswer"}
 
 		var quizKeyboard = tgbotapi.NewInlineKeyboardMarkup(
@@ -357,29 +376,41 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			),
 		) // prepare randomized answer keyboard
 
-		/*
-			msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, forReview[count].Question)
-			kbrd := tgbotapi.NewEditMessageReplyMarkup(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, quizKeyboard)
-			bot.Send(msg)
-			bot.Send(kbrd)
-		*/
 		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[count].Question)
 		msg.ReplyMarkup = quizKeyboard
 		bot.Send(msg)
-
 		countForReview[updateFrom(&update).ID]++
+
+		//start := time.Now()
+
+		//quality := readQuality(bot, &update)
 
 	} else {
 
 		countForReview[updateFrom(&update).ID] = 0
 		showMessage(bot, update, "Finished!")
 		showHelp(bot, update)
-		/*
-			msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "Finished!")
-			kbrd := tgbotapi.NewEditMessageReplyMarkup(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, settingsKeyboard)
-			bot.Send(msg)
-			bot.Send(kbrd)
-		*/
 	}
+
+}
+
+func readQuality(bot *tgbotapi.BotAPI, update *tgbotapi.Update) int {
+
+	var sw = Stopwatch
+
+	if countForReview[updateFrom(update).ID] != 0 {
+
+		sw.mark = time.Since(sw.start)
+		sw.start = time.Now()
+
+		//stopwatch[updateFrom(&update)] = Stopwatch.
+	} else {
+
+		sw.start = time.Now()
+	}
+
+	//stopwatch[updateFrom(&update)] =
+
+	return 0
 
 }
