@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/burke/nanomemo/supermemo"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -214,6 +215,47 @@ func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) err
 
 		addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), user)
 
+	}
+
+	return nil
+}
+
+type FactMetadata struct {
+	// Easiness FactMetadataor of the fact. Higher means the item is easier for the user
+	// to remember.
+	Ef float64 `bson:"ef"`
+	// Interval number of days to wait before presenting this item again after the
+	// end of this session.
+	Interval int `bson:"interval"`
+	// last time the fact was reviewed. Interval counts days from here.
+	IntervalFrom interface{} `bson:"intervalFrom"`
+	// number of times this fact has been presented; reset to 0 on failed answer.
+	N int `bson:"n"`
+}
+
+func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
+
+	log.Printf("user.ID: %v\n", user.ID)
+
+	for _, fact := range *factSet {
+
+		var Fact FactMetadata
+		_, _, ef, n, interval, intervalFrom := fact.Dump()
+		Fact.Ef = ef
+		Fact.Interval = interval
+		Fact.IntervalFrom = intervalFrom
+		Fact.N = n
+
+		res, err := libraryCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"ownerId": user.ID, "factSet.question": fact.Question},
+			bson.M{"$set": bson.M{"factSet.$.factmetadata": Fact}},
+		)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("res: %v\n", res)
 	}
 
 	return nil

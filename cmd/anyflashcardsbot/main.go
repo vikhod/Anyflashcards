@@ -169,7 +169,7 @@ func main() {
 					log.Panic(err)
 				}
 
-				libraryForReview[updateFrom(&update).ID] = dictionary.FactSet
+				libraryForReview[updateFrom(&update).ID] = dictionary.FactSet.ForReview()
 
 				showHelp(bot, update)
 
@@ -379,17 +379,28 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[count].Question)
 		msg.ReplyMarkup = quizKeyboard
 		bot.Send(msg)
-		countForReview[updateFrom(&update).ID]++
-
-		//start := time.Now()
 
 		log.Printf("readQuality(&update): %v\n", readQuality(&update))
+		quality := readQuality(&update)
+
+		countForReview[updateFrom(&update).ID]++
+
+		if count != 0 {
+
+			forReview[count].Assess(quality)
+
+			log.Printf("forReview[count].FactMetadata: %v\n", forReview[count].FactMetadata)
+
+		}
 
 	} else {
-
 		countForReview[updateFrom(&update).ID] = 0
+		stopwatch[updateFrom(&update).ID] = Stopwatch{}
 		showMessage(bot, update, "Finished!")
 		showHelp(bot, update)
+		if err := dumpFacts(updateFrom(&update), &forReview); err != nil {
+			log.Printf("err: %v\n", err.Error())
+		}
 	}
 
 }
@@ -423,7 +434,7 @@ func readQuality(update *tgbotapi.Update) int {
 			quality[updateFrom(update).ID] = 3
 		}
 
-	} else if update.CallbackQuery.Data != "correctAnswer" {
+	} else if update.CallbackQuery.Data == "incorrectAnswer" {
 
 		if sw.mark.Seconds() < 5 {
 			quality[updateFrom(update).ID] = 2
@@ -431,6 +442,12 @@ func readQuality(update *tgbotapi.Update) int {
 		} else if sw.mark.Seconds() > 5 {
 			quality[updateFrom(update).ID] = 1
 		}
+
+	} else if update.CallbackQuery.Data == "blackout" {
+		quality[updateFrom(update).ID] = 0
+
+	} else if update.CallbackQuery.Data == "quiz" {
+		quality[updateFrom(update).ID] = 3
 	}
 
 	return quality[updateFrom(update).ID]
