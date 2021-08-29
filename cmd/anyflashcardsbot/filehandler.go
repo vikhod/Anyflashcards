@@ -99,6 +99,19 @@ func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
 	switch len(record) {
 	case 2:
 		fact = supermemo.NewFact(record[0], record[1])
+		/*
+			q := record[0]
+			a := record[1]
+			ef := 2.5
+			n := 0
+			interval := 0
+			intervalFrom := "0001-01-01"
+			var err error
+			fact, err = supermemo.LoadFact(q, a, ef, int(n), int(interval), intervalFrom)
+			if err != nil {
+				return nil, err
+			}
+		*/
 	case 6:
 		q := record[0]
 		a := record[1]

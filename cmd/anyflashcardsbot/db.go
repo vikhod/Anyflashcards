@@ -133,6 +133,8 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 
 		addDictionary(defaultDictionaryPath, newUser)
 
+		// Set default metadata
+
 		// Update user in database if existent
 	} else if err.Err() != mongo.ErrNoDocuments {
 		_, err := usersCollection.UpdateOne(
@@ -193,6 +195,30 @@ func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 		return err
 	}
 
+	setDefaultFactMetadata(user)
+
+	return nil
+}
+
+func setDefaultFactMetadata(user *tgbotapi.User) error {
+
+	var Fact FactMetadata
+
+	Fact.Ef = 2.5
+	Fact.Interval = 0
+	Fact.IntervalFrom = ""
+	Fact.N = 0
+
+	res, err := libraryCollection.UpdateMany(
+		context.TODO(),
+		bson.M{"ownerId": user.ID, "factSet": bson.M{}},
+		bson.M{"$set": bson.M{"factSet.$.factmetadata": Fact}},
+	)
+	fmt.Printf("res: %v\n", res)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -228,7 +254,7 @@ type FactMetadata struct {
 	// end of this session.
 	Interval int `bson:"interval"`
 	// last time the fact was reviewed. Interval counts days from here.
-	IntervalFrom interface{} `bson:"intervalFrom"`
+	IntervalFrom string `bson:"intervalFrom"`
 	// number of times this fact has been presented; reset to 0 on failed answer.
 	N int `bson:"n"`
 }
@@ -246,7 +272,7 @@ func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
 		Fact.IntervalFrom = intervalFrom
 		Fact.N = n
 
-		res, err := libraryCollection.UpdateOne(
+		_, err := libraryCollection.UpdateOne(
 			context.TODO(),
 			bson.M{"ownerId": user.ID, "factSet.question": fact.Question},
 			bson.M{"$set": bson.M{"factSet.$.factmetadata": Fact}},
@@ -254,8 +280,6 @@ func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
 		if err != nil {
 			return err
 		}
-
-		log.Printf("res: %v\n", res)
 	}
 
 	return nil

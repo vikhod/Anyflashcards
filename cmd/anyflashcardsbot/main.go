@@ -376,33 +376,42 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			),
 		) // prepare randomized answer keyboard
 
+		// Show question with randomized keyboard
 		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[count].Question)
 		msg.ReplyMarkup = quizKeyboard
 		bot.Send(msg)
 
-		log.Printf("readQuality(&update): %v\n", readQuality(&update))
+		// Read quality of answer with usin stopwatch
 		quality := readQuality(&update)
 
 		countForReview[updateFrom(&update).ID]++
 
+		// Assess fact metadata witn new quality value
 		if count != 0 {
-
-			forReview[count].Assess(quality)
-
-			log.Printf("forReview[count].FactMetadata: %v\n", forReview[count].FactMetadata)
-
+			forReview[count-1].Assess(quality)
+		} else if count == 0 {
+			forReview[count].Assess(3)
 		}
 
 	} else {
+
+		// Read last update
+		quality := readQuality(&update)
+		forReview[count-1].Assess(quality)
+
+		// Nullify variables
 		countForReview[updateFrom(&update).ID] = 0
 		stopwatch[updateFrom(&update).ID] = Stopwatch{}
+
+		// Show finish message and show help again
 		showMessage(bot, update, "Finished!")
 		showHelp(bot, update)
+
+		// Dump facts into base
 		if err := dumpFacts(updateFrom(&update), &forReview); err != nil {
 			log.Printf("err: %v\n", err.Error())
 		}
 	}
-
 }
 
 func readQuality(update *tgbotapi.Update) int {
@@ -445,10 +454,11 @@ func readQuality(update *tgbotapi.Update) int {
 
 	} else if update.CallbackQuery.Data == "blackout" {
 		quality[updateFrom(update).ID] = 0
-
-	} else if update.CallbackQuery.Data == "quiz" {
-		quality[updateFrom(update).ID] = 3
 	}
+
+	//} else if update.CallbackQuery.Data == "quiz" {
+	//	quality[updateFrom(update).ID] = 3
+	//}
 
 	return quality[updateFrom(update).ID]
 }
