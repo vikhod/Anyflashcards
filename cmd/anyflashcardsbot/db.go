@@ -31,7 +31,6 @@ var (
 )
 
 func connectMongoDb() error {
-
 	// Connect to MongoDB
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(mongo_url))
 	if err != nil {
@@ -62,7 +61,6 @@ type User struct {
 var nativeGroupChatID, _ = strconv.ParseInt(os.Getenv("NATIVE_GROUP_CHAT_ID"), 10, 64)
 
 func fillMembershipMap() error {
-
 	users, err := usersCollection.Find(context.TODO(), bson.M{})
 	if err != nil {
 		return err
@@ -82,7 +80,6 @@ func fillMembershipMap() error {
 var defaultDictionaryPath = "./configs/dictionaries/owsi.csv"
 
 func addNewUsers(bot *tgbotapi.BotAPI, newUsers *[]tgbotapi.User) error {
-
 	for _, newUser := range *newUsers {
 		addNewUser(bot, &newUser)
 	}
@@ -91,7 +88,6 @@ func addNewUsers(bot *tgbotapi.BotAPI, newUsers *[]tgbotapi.User) error {
 }
 
 func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
-
 	// Create struct for new user
 	var user User
 	user.ID = primitive.NewObjectID()
@@ -151,7 +147,6 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 }
 
 func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
-
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
 	chatConfigWithUser.ChatID = nativeGroupChatID
 	chatConfigWithUser.UserID = leftUser.ID
@@ -175,7 +170,6 @@ func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
 }
 
 func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
-
 	dictionary := loadDictionary(csvDictionaryPath)
 
 	id, err := libraryCollection.InsertOne(
@@ -201,20 +195,19 @@ func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 }
 
 func setDefaultFactMetadata(user *tgbotapi.User) error {
+	var factMetadata FactMetadata
 
-	var Fact FactMetadata
+	factMetadata.Ef = 2.5
+	factMetadata.Interval = 0
+	factMetadata.IntervalFrom = ""
+	factMetadata.N = 0
 
-	Fact.Ef = 2.5
-	Fact.Interval = 0
-	Fact.IntervalFrom = ""
-	Fact.N = 0
-
-	res, err := libraryCollection.UpdateMany(
+	res, err := libraryCollection.UpdateOne(
 		context.TODO(),
-		bson.M{"ownerId": user.ID, "factSet": bson.M{}},
-		bson.M{"$set": bson.M{"factSet.$.factmetadata": Fact}},
+		bson.M{"ownerId": user.ID, "factSet.factmetadata": bson.M{}},
+		bson.M{"$set": bson.M{"factSet.$[].factmetadata": factMetadata}},
 	)
-	fmt.Printf("res: %v\n", res)
+	log.Printf("res: %v\n", res)
 	if err != nil {
 		return err
 	}
@@ -223,7 +216,6 @@ func setDefaultFactMetadata(user *tgbotapi.User) error {
 }
 
 func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) error {
-
 	_, err := libraryCollection.DeleteMany(
 		context.TODO(),
 		bson.M{"ownerId": user.ID},
@@ -238,9 +230,7 @@ func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) err
 	}
 
 	for _, csvDictionaryPath := range csvDictionariesPathes {
-
 		addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), user)
-
 	}
 
 	return nil
@@ -260,7 +250,6 @@ type FactMetadata struct {
 }
 
 func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
-
 	log.Printf("user.ID: %v\n", user.ID)
 
 	for _, fact := range *factSet {

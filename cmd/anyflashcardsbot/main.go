@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/burke/nanomemo/supermemo"
@@ -57,17 +58,21 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
-var libraryForReview = map[int]supermemo.FactSet{}
-var countForReview = map[int]int{}
-var membership = map[int]string{}
+var (
+	libraryForReview = map[int]supermemo.FactSet{}
+	countForReview   = map[int]int{}
+	membership       = map[int]string{}
+)
 
 type Stopwatch struct {
 	start time.Time
 	mark  time.Duration
 }
 
-var stopwatch = map[int]Stopwatch{}
-var quality = map[int]int{}
+var (
+	stopwatch = map[int]Stopwatch{}
+	quality   = map[int]int{}
+)
 
 var defaultLibraryDirPath = "./configs/dictionaries"
 
@@ -156,7 +161,7 @@ func main() {
 				leftUser(bot, update.Message.LeftChatMember)
 			}
 
-			//Handle commands
+			// Handle commands
 			command := update.Message.Command()
 			if command == "start" {
 
@@ -175,12 +180,10 @@ func main() {
 
 			} else if command == "help" {
 				showHelp(bot, update)
-
 			} else if command == "settings" {
 				showSettings(bot, update)
 
 				// Add command hear
-
 			} else if update.Message.IsCommand() {
 				showMessage(bot, update, "Unrecognized command. Use /help.")
 			}
@@ -198,8 +201,8 @@ func main() {
 						}
 
 						// Make dir and download file
-						os.Mkdir(string(rune(update.Message.From.ID)), os.ModePerm)
-						csvDictionaryPath := "./" + string(rune(updateFrom(&update).ID)) + "/" + update.Message.Document.FileName
+						os.Mkdir(strconv.Itoa(updateFrom(&update).ID), os.ModePerm)
+						csvDictionaryPath := "./" + strconv.Itoa(updateFrom(&update).ID) + "/" + update.Message.Document.FileName
 						downloadFile(fileDirectUrl, csvDictionaryPath)
 
 						// Push dict to postgress
@@ -275,7 +278,6 @@ func main() {
 }
 
 func showHelp(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
-
 	var msg tgbotapi.MessageConfig
 
 	if update.Message != nil {
@@ -296,7 +298,6 @@ func showHelp(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 }
 
 func showMessage(bot *tgbotapi.BotAPI, update tgbotapi.Update, message string) error {
-
 	var msg tgbotapi.MessageConfig
 
 	if update.Message != nil {
@@ -316,7 +317,6 @@ func showMessage(bot *tgbotapi.BotAPI, update tgbotapi.Update, message string) e
 }
 
 func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
-
 	var msg tgbotapi.MessageConfig
 	var message string = "What do you want to set?"
 
@@ -338,7 +338,6 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 }
 
 func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
-
 	forReview := libraryForReview[updateFrom(&update).ID]
 	count := countForReview[updateFrom(&update).ID]
 
@@ -365,7 +364,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		randomAnswerArray[randomOfFour] = []string{forReview[count].Answer, "correctAnswer"}
 
-		var quizKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+		quizKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData(randomAnswerArray[0][0], randomAnswerArray[0][1]),
 				tgbotapi.NewInlineKeyboardButtonData(randomAnswerArray[1][0], randomAnswerArray[1][1]),
@@ -415,7 +414,6 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 }
 
 func readQuality(update *tgbotapi.Update) int {
-
 	sw := stopwatch[updateFrom(update).ID]
 
 	if countForReview[updateFrom(update).ID] != 0 {
@@ -432,26 +430,19 @@ func readQuality(update *tgbotapi.Update) int {
 	stopwatch[updateFrom(update).ID] = sw
 
 	if update.CallbackQuery.Data == "correctAnswer" {
-
 		if sw.mark.Seconds() < 5 {
 			quality[updateFrom(update).ID] = 5
-
 		} else if sw.mark.Seconds() > 5 && sw.mark.Seconds() < 10 {
 			quality[updateFrom(update).ID] = 4
-
 		} else if sw.mark.Seconds() > 10 {
 			quality[updateFrom(update).ID] = 3
 		}
-
 	} else if update.CallbackQuery.Data == "incorrectAnswer" {
-
 		if sw.mark.Seconds() < 5 {
 			quality[updateFrom(update).ID] = 2
-
 		} else if sw.mark.Seconds() > 5 {
 			quality[updateFrom(update).ID] = 1
 		}
-
 	} else if update.CallbackQuery.Data == "blackout" {
 		quality[updateFrom(update).ID] = 0
 	}
