@@ -387,16 +387,16 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		// Assess fact metadata witn new quality value
 		if count != 0 {
-			forReview[count-1].Assess(quality)
+			forReview[count-1].FactMetadata.Assess(quality)
 		} else if count == 0 {
-			forReview[count].Assess(3)
+			forReview[count].FactMetadata.Assess(3)
 		}
 
 	} else {
 
 		// Read last update
 		quality := readQuality(&update)
-		forReview[count-1].Assess(quality)
+		forReview[count-1].FactMetadata.Assess(quality)
 
 		// Nullify variables
 		countForReview[updateFrom(&update).ID] = 0

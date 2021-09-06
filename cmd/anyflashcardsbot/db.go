@@ -197,17 +197,16 @@ func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 func setDefaultFactMetadata(user *tgbotapi.User) error {
 	var factMetadata FactMetadata
 
-	factMetadata.Ef = 2.5
+	factMetadata.Ef = float64(2.5)
 	factMetadata.Interval = 0
 	factMetadata.IntervalFrom = ""
 	factMetadata.N = 0
 
-	res, err := libraryCollection.UpdateOne(
+	_, err := libraryCollection.UpdateOne(
 		context.TODO(),
 		bson.M{"ownerId": user.ID, "factSet.factmetadata": bson.M{}},
 		bson.M{"$set": bson.M{"factSet.$[].factmetadata": factMetadata}},
 	)
-	log.Printf("res: %v\n", res)
 	if err != nil {
 		return err
 	}
@@ -250,8 +249,6 @@ type FactMetadata struct {
 }
 
 func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
-	log.Printf("user.ID: %v\n", user.ID)
-
 	for _, fact := range *factSet {
 
 		var Fact FactMetadata
