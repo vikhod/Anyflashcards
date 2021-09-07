@@ -169,8 +169,10 @@ func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
 	return nil
 }
 
-func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
+func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error { // TODO write metadata
 	dictionary := loadDictionary(csvDictionaryPath)
+
+	//log.Printf("dictionary.FactSet[0].FactMetadata in addDictionary: %v\n", dictionary.FactSet[0].FactMetadata)
 
 	id, err := libraryCollection.InsertOne(
 		context.TODO(),
@@ -189,11 +191,13 @@ func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 		return err
 	}
 
-	setDefaultFactMetadata(user)
+	dumpFacts(user, &dictionary.FactSet)
+	//setDefaultFactMetadata(user)
 
 	return nil
 }
 
+/*
 func setDefaultFactMetadata(user *tgbotapi.User) error {
 	var factMetadata FactMetadata
 
@@ -213,6 +217,7 @@ func setDefaultFactMetadata(user *tgbotapi.User) error {
 
 	return nil
 }
+*/
 
 func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) error {
 	_, err := libraryCollection.DeleteMany(
@@ -235,6 +240,22 @@ func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) err
 	return nil
 }
 
+type DictionaryForBase struct {
+	ID            primitive.ObjectID `bson:"_id"`
+	FilePath      string             `bson:"filePath"`
+	FactSet       FactSet            `bson:"factSet"`
+	OwnerUsername string             `bson:"ownerUsername"`
+	OwnerID       int                `bson:"ownerId"`
+}
+
+type FactSet []*Fact
+
+type Fact struct {
+	Question string
+	Answer   string
+	*FactMetadata
+}
+
 type FactMetadata struct {
 	// Easiness FactMetadataor of the fact. Higher means the item is easier for the user
 	// to remember.
@@ -251,17 +272,17 @@ type FactMetadata struct {
 func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
 	for _, fact := range *factSet {
 
-		var Fact FactMetadata
+		var factMetadata FactMetadata
 		_, _, ef, n, interval, intervalFrom := fact.Dump()
-		Fact.Ef = ef
-		Fact.Interval = interval
-		Fact.IntervalFrom = intervalFrom
-		Fact.N = n
+		factMetadata.Ef = ef
+		factMetadata.Interval = interval
+		factMetadata.IntervalFrom = intervalFrom
+		factMetadata.N = n
 
 		_, err := libraryCollection.UpdateOne(
 			context.TODO(),
 			bson.M{"ownerId": user.ID, "factSet.question": fact.Question},
-			bson.M{"$set": bson.M{"factSet.$.factmetadata": Fact}},
+			bson.M{"$set": bson.M{"factSet.$.factmetadata": factMetadata}},
 		)
 		if err != nil {
 			return err
@@ -270,3 +291,5 @@ func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
 
 	return nil
 }
+
+//func loadDictionaryFromBase {}

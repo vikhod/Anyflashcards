@@ -62,6 +62,7 @@ func loadDictionary(csvPath string) (dictionary Dictionary) {
 	dictionary.ID = primitive.NewObjectID()
 	dictionary.FilePath = csvPath
 	dictionary.FactSet = loadAllFacts(csvPath)
+	log.Printf("dictionary.FactSet.FactMetadata in loadDictionary: %v\n", dictionary.FactSet[0].FactMetadata)
 
 	return dictionary
 }
@@ -99,6 +100,7 @@ func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
 	switch len(record) {
 	case 2:
 		fact = supermemo.NewFact(record[0], record[1])
+		//log.Printf("fact.FactMetadata: %v\n", fact.FactMetadata)
 		/*
 			q := record[0]
 			a := record[1]
