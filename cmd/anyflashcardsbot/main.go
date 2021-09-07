@@ -166,15 +166,33 @@ func main() {
 			if command == "start" {
 
 				// Fill and update libraryForReview
-				var dictionary Dictionary
+				var dictionaryForBase DictionaryForBase
+				//var dictionaryForWork Dictionary
 
 				if err := libraryCollection.FindOne(
 					context.TODO(),
-					bson.M{"ownerId": updateFrom(&update).ID}).Decode(&dictionary); err != nil {
+					bson.M{"ownerId": updateFrom(&update).ID}).Decode(&dictionaryForBase); err != nil {
 					log.Panic(err)
 				}
 
-				libraryForReview[updateFrom(&update).ID] = dictionary.FactSet.ForReview()
+				var faktSet supermemo.FactSet
+
+				for _, fact := range dictionaryForBase.FactSet {
+
+					q := fact.Question
+					a := fact.Answer
+					ef := fact.Ef
+					n := fact.N
+					interval := fact.Interval
+					intervalFrom := fact.IntervalFrom
+
+					fakt, _ := supermemo.LoadFact(q, a, ef, n, interval, intervalFrom)
+
+					faktSet = append(faktSet, fakt)
+
+				}
+
+				libraryForReview[updateFrom(&update).ID] = faktSet.ForReview()
 
 				showHelp(bot, update)
 
@@ -387,7 +405,10 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		// Assess fact metadata witn new quality value
 		if count != 0 {
+			log.Printf("forReview[count-1].FactMetadata before: %v\n", forReview[count-1].FactMetadata)
 			forReview[count-1].FactMetadata.Assess(quality)
+			log.Printf("forReview[count-1].FactMetadata after: %v\n", forReview[count-1].FactMetadata)
+
 		} else if count == 0 {
 			forReview[count].FactMetadata.Assess(3)
 		}
