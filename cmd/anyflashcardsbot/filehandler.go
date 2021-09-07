@@ -62,9 +62,21 @@ func loadDictionary(csvPath string) (dictionary Dictionary) {
 	dictionary.ID = primitive.NewObjectID()
 	dictionary.FilePath = csvPath
 	dictionary.FactSet = loadAllFacts(csvPath)
-	log.Printf("dictionary.FactSet.FactMetadata in loadDictionary: %v\n", dictionary.FactSet[0].FactMetadata)
 
 	return dictionary
+}
+
+func loadFactsFromDisc(csvPath string) (factSet *FactSet) {
+
+	smFactSet := loadAllFacts(csvPath)
+	factSet = toFactSet(&smFactSet)
+
+	return factSet
+}
+
+func dumpFactsToDisc(user *tgbotapi.User, factSet *FactSet) error {
+
+	return nil
 }
 
 func loadAllFacts(csvPath string) supermemo.FactSet {

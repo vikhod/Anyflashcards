@@ -169,10 +169,8 @@ func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
 	return nil
 }
 
-func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error { // TODO write metadata
+func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 	dictionary := loadDictionary(csvDictionaryPath)
-
-	//log.Printf("dictionary.FactSet[0].FactMetadata in addDictionary: %v\n", dictionary.FactSet[0].FactMetadata)
 
 	id, err := libraryCollection.InsertOne(
 		context.TODO(),
@@ -292,4 +290,79 @@ func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
 	return nil
 }
 
-//func loadDictionaryFromBase {}
+func loadFactsFromBase(user *tgbotapi.User) (FactSet, error) {
+
+	var dictionaryForBase DictionaryForBase
+	var err error
+	if err = libraryCollection.FindOne(
+		context.TODO(),
+		bson.M{"ownerId": user.ID}).Decode(&dictionaryForBase); err != nil {
+
+		log.Panic(err)
+		return nil, err
+	}
+
+	return dictionaryForBase.FactSet, err
+}
+
+func dumpFactsToBase(user *tgbotapi.User, factSet *FactSet) error {
+	var dictionary DictionaryForBase
+	//dictionary.FilePath = ""
+	dictionary.FactSet = *factSet
+	dictionary.OwnerUsername = user.UserName
+	dictionary.OwnerID = user.ID
+
+	_, err := libraryCollection.InsertOne(
+		context.TODO(),
+		dictionary,
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (factSet *FactSet) toSupermemoFactSet() *supermemo.FactSet {
+
+	var smFactSet supermemo.FactSet
+
+	for _, fact := range *factSet {
+
+		q := fact.Question
+		a := fact.Answer
+		ef := fact.Ef
+		n := fact.N
+		interval := fact.Interval
+		intervalFrom := fact.IntervalFrom
+
+		smFact, _ := supermemo.LoadFact(q, a, ef, n, interval, intervalFrom)
+
+		smFactSet = append(smFactSet, smFact)
+
+	}
+	return &smFactSet
+}
+
+func toFactSet(smFactSet *supermemo.FactSet) *FactSet {
+
+	var factSet FactSet
+
+	for _, smFact := range *smFactSet {
+
+		q, a, ef, n, interval, intervalFrom := smFact.Dump()
+
+		var fact Fact
+		fact.Question = q
+		fact.Answer = a
+		fact.Ef = ef
+		fact.N = n
+		fact.Interval = interval
+		fact.IntervalFrom = intervalFrom
+
+		factSet = append(factSet, &fact)
+
+	}
+
+	return &factSet
+
+}
