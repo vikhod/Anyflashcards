@@ -246,12 +246,12 @@ type DictionaryForBase struct {
 	OwnerID       int                `bson:"ownerId"`
 }
 
-type FactSet []*Fact
+type FactSet []Fact
 
 type Fact struct {
 	Question string
 	Answer   string
-	*FactMetadata
+	FactMetadata
 }
 
 type FactMetadata struct {
@@ -322,7 +322,7 @@ func dumpFactsToBase(user *tgbotapi.User, factSet *FactSet) error {
 	return nil
 }
 
-func (factSet *FactSet) toSupermemoFactSet() *supermemo.FactSet {
+func toSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
 
 	var smFactSet supermemo.FactSet
 
@@ -343,26 +343,27 @@ func (factSet *FactSet) toSupermemoFactSet() *supermemo.FactSet {
 	return &smFactSet
 }
 
-func toFactSet(smFactSet *supermemo.FactSet) *FactSet {
+func toFactSet(smFactSet supermemo.FactSet) FactSet {
 
 	var factSet FactSet
 
-	for _, smFact := range *smFactSet {
+	for _, smFact := range smFactSet {
 
 		q, a, ef, n, interval, intervalFrom := smFact.Dump()
+		fmt.Printf("q, a, ef, n, interval, intervalFrom: %v, %v, %v, %v, %v, %v", q, a, ef, n, interval, intervalFrom)
 
 		var fact Fact
 		fact.Question = q
 		fact.Answer = a
-		fact.Ef = ef
-		fact.N = n
-		fact.Interval = interval
-		fact.IntervalFrom = intervalFrom
+		fact.FactMetadata.Ef = ef
+		fact.FactMetadata.N = n
+		fact.FactMetadata.Interval = interval
+		fact.FactMetadata.IntervalFrom = intervalFrom
 
-		factSet = append(factSet, &fact)
+		factSet = append(factSet, fact)
 
 	}
 
-	return &factSet
+	return factSet
 
 }

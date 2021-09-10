@@ -66,10 +66,10 @@ func loadDictionary(csvPath string) (dictionary Dictionary) {
 	return dictionary
 }
 
-func loadFactsFromDisc(csvPath string) (factSet *FactSet) {
+func loadFactsFromDisc(csvPath string) (factSet FactSet) {
 
 	smFactSet := loadAllFacts(csvPath)
-	factSet = toFactSet(&smFactSet)
+	factSet = toFactSet(smFactSet)
 
 	return factSet
 }

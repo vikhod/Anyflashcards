@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -164,6 +165,10 @@ func main() {
 			// Handle commands
 			command := update.Message.Command()
 			if command == "start" {
+
+				// Nullify variables
+				countForReview[updateFrom(&update).ID] = 0
+				stopwatch[updateFrom(&update).ID] = Stopwatch{}
 
 				// Fill and update libraryForReview
 				var dictionaryForBase DictionaryForBase
@@ -361,10 +366,33 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 	if count < len(forReview) {
 
+		log.Printf("count: %v", count)
+		log.Printf("len(forReviw): %v", len(forReview))
+
 		// Prepare randomized answer keybord
 		randomOfFour := rand.Intn(3)
+		log.Printf("randomOfFour: %v\n", randomOfFour)
+
+		// Form array of four posible answer
+		fs := toFactSet(forReview)
+		fs = append(fs[:randomOfFour], fs[randomOfFour+1:]...)
+
+		arrayOfFourPosibleAnswer := make([][]string, 4)
+
+		for i := 0; i < 4; {
+
+			randomPosition := rand.Intn(len(forReview))
+			arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], forReview[randomPosition].Answer, "incorrectAnswer")
+			fs = append(fs[:randomPosition], fs[randomPosition+1:]...)
+			fmt.Printf("arrayOfFourPosibleAnswer[i]: %v\n", arrayOfFourPosibleAnswer[i])
+			i++
+
+		}
+
 		randomAnswerArray := make([][]string, 4)
 		for i := range randomAnswerArray {
+
+			randomAnswerArray[i] = []string{"The Road So Far", "incorrectAnswer"}
 
 			limiter := 0
 
@@ -405,15 +433,18 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		// Assess fact metadata witn new quality value
 		if count != 0 {
-			log.Printf("forReview[count-1].FactMetadata before: %v\n", forReview[count-1].FactMetadata)
+
 			forReview[count-1].FactMetadata.Assess(quality)
-			log.Printf("forReview[count-1].FactMetadata after: %v\n", forReview[count-1].FactMetadata)
 
 		} else if count == 0 {
-			forReview[count].FactMetadata.Assess(3)
+			//forReview[count].FactMetadata.Assess(3)
+			log.Printf("forReview[count].FactMetadata: %v\n", forReview[count].FactMetadata)
 		}
 
 	} else {
+
+		log.Printf("count: %v", count)
+		log.Printf("len(forReviw): %v", len(forReview))
 
 		// Read last update
 		quality := readQuality(&update)
