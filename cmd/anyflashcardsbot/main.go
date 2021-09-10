@@ -61,7 +61,7 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 
 var (
 	libraryForReview = map[int]supermemo.FactSet{}
-	countForReview   = map[int]int{}
+	indexForReview   = map[int]int{}
 	membership       = map[int]string{}
 )
 
@@ -167,7 +167,7 @@ func main() {
 			if command == "start" {
 
 				// Nullify variables
-				countForReview[updateFrom(&update).ID] = 0
+				indexForReview[updateFrom(&update).ID] = 0
 				stopwatch[updateFrom(&update).ID] = Stopwatch{}
 
 				// Fill and update libraryForReview
@@ -362,11 +362,11 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 
 func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	forReview := libraryForReview[updateFrom(&update).ID]
-	count := countForReview[updateFrom(&update).ID]
+	index := indexForReview[updateFrom(&update).ID]
 
-	if count < len(forReview) {
+	if index < len(forReview) {
 
-		log.Printf("count: %v", count)
+		log.Printf("index: %v", index)
 		log.Printf("len(forReviw): %v", len(forReview))
 
 		// Prepare randomized answer keybord
@@ -396,19 +396,19 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 			limiter := 0
 
-			if count < 3 {
+			if index < 3 {
 				limiter = 3
 			}
 
-			if count >= len(forReview)-3 {
+			if index >= len(forReview)-3 {
 				limiter = -3
 			}
 
-			framer := count - randomOfFour + i + limiter
+			framer := index - randomOfFour + i + limiter
 			randomAnswerArray[i] = []string{forReview[framer].Answer, "incorrectAnswer"}
 		}
 
-		randomAnswerArray[randomOfFour] = []string{forReview[count].Answer, "correctAnswer"}
+		randomAnswerArray[randomOfFour] = []string{forReview[index].Answer, "correctAnswer"}
 
 		quizKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
@@ -422,36 +422,36 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		) // prepare randomized answer keyboard
 
 		// Show question with randomized keyboard
-		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[count].Question)
+		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[index].Question)
 		msg.ReplyMarkup = quizKeyboard
 		bot.Send(msg)
 
 		// Read quality of answer with usin stopwatch
 		quality := readQuality(&update)
 
-		countForReview[updateFrom(&update).ID]++
+		indexForReview[updateFrom(&update).ID]++
 
 		// Assess fact metadata witn new quality value
-		if count != 0 {
+		if index != 0 {
 
-			forReview[count-1].FactMetadata.Assess(quality)
+			forReview[index-1].FactMetadata.Assess(quality)
 
-		} else if count == 0 {
-			//forReview[count].FactMetadata.Assess(3)
-			log.Printf("forReview[count].FactMetadata: %v\n", forReview[count].FactMetadata)
+		} else if index == 0 {
+			//forReview[index].FactMetadata.Assess(3)
+			log.Printf("forReview[index].FactMetadata: %v\n", forReview[index].FactMetadata)
 		}
 
 	} else {
 
-		log.Printf("count: %v", count)
+		log.Printf("index: %v", index)
 		log.Printf("len(forReviw): %v", len(forReview))
 
 		// Read last update
 		quality := readQuality(&update)
-		forReview[count-1].FactMetadata.Assess(quality)
+		forReview[index-1].FactMetadata.Assess(quality)
 
 		// Nullify variables
-		countForReview[updateFrom(&update).ID] = 0
+		indexForReview[updateFrom(&update).ID] = 0
 		stopwatch[updateFrom(&update).ID] = Stopwatch{}
 
 		// Show finish message and show help again
@@ -468,7 +468,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 func readQuality(update *tgbotapi.Update) int {
 	sw := stopwatch[updateFrom(update).ID]
 
-	if countForReview[updateFrom(update).ID] != 0 {
+	if indexForReview[updateFrom(update).ID] != 0 {
 		sw.mark = time.Since(sw.start)
 		sw.start = time.Now()
 
