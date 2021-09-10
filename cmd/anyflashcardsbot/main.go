@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -366,6 +365,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 	if index < len(forReview) {
 
+		log.Printf("in: index < len(forReview)")
 		log.Printf("index: %v", index)
 		log.Printf("len(forReviw): %v", len(forReview))
 
@@ -375,49 +375,59 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		// Form array of four posible answer
 		fs := toFactSet(forReview)
-		fs = append(fs[:randomOfFour], fs[randomOfFour+1:]...)
+		fs = append(fs[:0], fs[1:]...)
 
 		arrayOfFourPosibleAnswer := make([][]string, 4)
 
-		for i := 0; i < 4; {
+		for i := 0; i < 4; i++ {
 
-			randomPosition := rand.Intn(len(forReview))
-			arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], forReview[randomPosition].Answer, "incorrectAnswer")
-			fs = append(fs[:randomPosition], fs[randomPosition+1:]...)
-			fmt.Printf("arrayOfFourPosibleAnswer[i]: %v\n", arrayOfFourPosibleAnswer[i])
-			i++
+			arrayOfFourPosibleAnswer[i] = []string{"The Road So Far", "incorrectAnswer"}
 
-		}
+			if len(fs) > 1 {
+				randomPosition := rand.Intn(len(fs))
+				arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], fs[randomPosition].Answer, "incorrectAnswer")
+				fs = append(fs[:randomPosition], fs[randomPosition+1:]...)
+				log.Printf("arrayOfFourPosibleAnswer[i]: %v\n", arrayOfFourPosibleAnswer[i])
 
-		randomAnswerArray := make([][]string, 4)
-		for i := range randomAnswerArray {
+			} else if len(fs) == 0 {
+				continue
 
-			randomAnswerArray[i] = []string{"The Road So Far", "incorrectAnswer"}
+			} else if len(fs) == 1 {
+				arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], fs[0].Answer, "incorrectAnswer")
 
-			limiter := 0
-
-			if index < 3 {
-				limiter = 3
 			}
 
-			if index >= len(forReview)-3 {
-				limiter = -3
-			}
-
-			framer := index - randomOfFour + i + limiter
-			randomAnswerArray[i] = []string{forReview[framer].Answer, "incorrectAnswer"}
 		}
+		/*
+			randomAnswerArray := make([][]string, 4)
+			for i := range randomAnswerArray {
 
-		randomAnswerArray[randomOfFour] = []string{forReview[index].Answer, "correctAnswer"}
+				randomAnswerArray[i] = []string{"The Road So Far", "incorrectAnswer"}
+
+				limiter := 0
+
+				if index < 3 {
+					limiter = 3
+				}
+
+				if index >= len(forReview)-3 {
+					limiter = -3
+				}
+
+				framer := index - randomOfFour + i + limiter
+				randomAnswerArray[i] = []string{forReview[framer].Answer, "incorrectAnswer"}
+			}
+		*/
+		arrayOfFourPosibleAnswer[randomOfFour] = []string{forReview[index].Answer, "correctAnswer"}
 
 		quizKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(randomAnswerArray[0][0], randomAnswerArray[0][1]),
-				tgbotapi.NewInlineKeyboardButtonData(randomAnswerArray[1][0], randomAnswerArray[1][1]),
+				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[0][0], arrayOfFourPosibleAnswer[0][1]),
+				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[1][0], arrayOfFourPosibleAnswer[1][1]),
 			),
 			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(randomAnswerArray[2][0], randomAnswerArray[2][1]),
-				tgbotapi.NewInlineKeyboardButtonData(randomAnswerArray[3][0], randomAnswerArray[3][1]),
+				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[2][0], arrayOfFourPosibleAnswer[2][1]),
+				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[3][0], arrayOfFourPosibleAnswer[3][1]),
 			),
 		) // prepare randomized answer keyboard
 
@@ -435,14 +445,16 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		if index != 0 {
 
 			forReview[index-1].FactMetadata.Assess(quality)
-
-		} else if index == 0 {
-			//forReview[index].FactMetadata.Assess(3)
-			log.Printf("forReview[index].FactMetadata: %v\n", forReview[index].FactMetadata)
 		}
+
+	} else if index == 0 {
+		//forReview[index].FactMetadata.Assess(3)
+		log.Printf("index == 0")
+		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
 
 	} else {
 
+		log.Printf("in: index !< len(forReview)")
 		log.Printf("index: %v", index)
 		log.Printf("len(forReviw): %v", len(forReview))
 
