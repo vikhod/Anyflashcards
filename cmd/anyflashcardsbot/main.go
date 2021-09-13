@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 	"math/rand"
 	"os"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/burke/nanomemo/supermemo"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 var help = `
@@ -60,8 +58,9 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 
 var (
 	libraryForReview = map[int]supermemo.FactSet{}
-	indexForReview   = map[int]int{}
-	membership       = map[int]string{}
+	//libraryForRandomization = map[int]supermemo.FactSet{}
+	indexForReview = map[int]int{}
+	membership     = map[int]string{}
 )
 
 type Stopwatch struct {
@@ -170,33 +169,15 @@ func main() {
 				stopwatch[updateFrom(&update).ID] = Stopwatch{}
 
 				// Fill and update libraryForReview
-				var dictionaryForBase DictionaryForBase
-				//var dictionaryForWork Dictionary
-
-				if err := libraryCollection.FindOne(
-					context.TODO(),
-					bson.M{"ownerId": updateFrom(&update).ID}).Decode(&dictionaryForBase); err != nil {
+				factSet, err := loadFactsFromBase(updateFrom(&update))
+				if err != nil {
 					log.Panic(err)
 				}
+				smFactSet := toSupermemoFactSet(&factSet)
 
-				var faktSet supermemo.FactSet
-
-				for _, fact := range dictionaryForBase.FactSet {
-
-					q := fact.Question
-					a := fact.Answer
-					ef := fact.Ef
-					n := fact.N
-					interval := fact.Interval
-					intervalFrom := fact.IntervalFrom
-
-					fakt, _ := supermemo.LoadFact(q, a, ef, n, interval, intervalFrom)
-
-					faktSet = append(faktSet, fakt)
-
-				}
-
-				libraryForReview[updateFrom(&update).ID] = faktSet.ForReview()
+				libraryForReview[updateFrom(&update).ID] = smFactSet.ForReview()
+				//libraryForRandomization[updateFrom(&update).ID] = libraryForReview[updateFrom(&update).ID]
+				//factSetForRandomization[updateFrom(&update).ID] = toFactSet(smFactSet)
 
 				showHelp(bot, update)
 
@@ -258,7 +239,23 @@ func main() {
 
 			// Pressed key Quiz
 			if callback == "quiz" {
+
 				log.Printf("In quiz case")
+
+				// Nulify variables
+				indexForReview[updateFrom(&update).ID] = 0
+				stopwatch[updateFrom(&update).ID] = Stopwatch{}
+
+				// Update libraryForReview
+				factSet, err := loadFactsFromBase(updateFrom(&update))
+				if err != nil {
+					log.Panic(err)
+				}
+				smFactSet := toSupermemoFactSet(&factSet)
+
+				libraryForReview[updateFrom(&update).ID] = smFactSet.ForReview()
+				//libraryForRandomization[updateFrom(&update).ID] = libraryForReview[updateFrom(&update).ID]
+
 				nextQuestion(bot, update)
 			}
 
@@ -361,119 +358,108 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 
 func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 	forReview := libraryForReview[updateFrom(&update).ID]
+	forRandomization := libraryForReview[updateFrom(&update).ID]
 	index := indexForReview[updateFrom(&update).ID]
 
-	if index < len(forReview) {
-
-		log.Printf("in: index < len(forReview)")
-		log.Printf("index: %v", index)
-		log.Printf("len(forReviw): %v", len(forReview))
-
-		// Prepare randomized answer keybord
-		randomOfFour := rand.Intn(3)
-		log.Printf("randomOfFour: %v\n", randomOfFour)
-
-		// Form array of four posible answer
-		fs := toFactSet(forReview)
-		fs = append(fs[:0], fs[1:]...)
-
-		arrayOfFourPosibleAnswer := make([][]string, 4)
-
-		for i := 0; i < 4; i++ {
-
-			arrayOfFourPosibleAnswer[i] = []string{"The Road So Far", "incorrectAnswer"}
-
-			if len(fs) > 1 {
-				randomPosition := rand.Intn(len(fs))
-				arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], fs[randomPosition].Answer, "incorrectAnswer")
-				fs = append(fs[:randomPosition], fs[randomPosition+1:]...)
-				log.Printf("arrayOfFourPosibleAnswer[i]: %v\n", arrayOfFourPosibleAnswer[i])
-
-			} else if len(fs) == 0 {
-				continue
-
-			} else if len(fs) == 1 {
-				arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], fs[0].Answer, "incorrectAnswer")
-
-			}
-
-		}
-		/*
-			randomAnswerArray := make([][]string, 4)
-			for i := range randomAnswerArray {
-
-				randomAnswerArray[i] = []string{"The Road So Far", "incorrectAnswer"}
-
-				limiter := 0
-
-				if index < 3 {
-					limiter = 3
-				}
-
-				if index >= len(forReview)-3 {
-					limiter = -3
-				}
-
-				framer := index - randomOfFour + i + limiter
-				randomAnswerArray[i] = []string{forReview[framer].Answer, "incorrectAnswer"}
-			}
-		*/
-		arrayOfFourPosibleAnswer[randomOfFour] = []string{forReview[index].Answer, "correctAnswer"}
-
-		quizKeyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[0][0], arrayOfFourPosibleAnswer[0][1]),
-				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[1][0], arrayOfFourPosibleAnswer[1][1]),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[2][0], arrayOfFourPosibleAnswer[2][1]),
-				tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[3][0], arrayOfFourPosibleAnswer[3][1]),
-			),
-		) // prepare randomized answer keyboard
-
-		// Show question with randomized keyboard
-		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[index].Question)
-		msg.ReplyMarkup = quizKeyboard
-		bot.Send(msg)
-
-		// Read quality of answer with usin stopwatch
-		quality := readQuality(&update)
-
-		indexForReview[updateFrom(&update).ID]++
+	if len(forReview) > 0 {
+		log.Printf("len(forReview) > 0")
 
 		// Assess fact metadata witn new quality value
-		if index != 0 {
 
+		if index < len(forReview) {
+			log.Printf("index < len(forReview)")
+
+			// Create and fill array of four random answer
+			//smFactSet := forReview.ForReview()
+			//factSet := toFactSet(&forReview)
+			forRandomization = append(forRandomization[:index], forRandomization[index+1:]...)
+
+			arrayOfFourPosibleAnswer := make([][]string, 4)
+
+			for i := 0; i < 4; i++ {
+
+				arrayOfFourPosibleAnswer[i] = []string{"The Road So Far", "incorrectAnswer"}
+
+				if len(forRandomization) == 0 {
+					log.Printf("len(factSet) == 0")
+					continue
+
+				} else if len(forRandomization) == 1 {
+					log.Printf("len(factSet) == 1")
+					arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], forRandomization[0].Answer, "incorrectAnswer")
+
+				} else if len(forRandomization) > 1 {
+					log.Printf("len(factSet) > 1")
+					randomPosition := rand.Intn(len(forRandomization))
+					arrayOfFourPosibleAnswer[i] = []string{forRandomization[randomPosition].Answer, "incorrectAnswer"}
+					forRandomization = append(forRandomization[:randomPosition], forRandomization[randomPosition+1:]...)
+				}
+
+			}
+
+			// Prepare randomized answer keybord
+			randomOfFour := rand.Intn(3)
+			arrayOfFourPosibleAnswer[randomOfFour] = []string{forReview[index].Answer, "correctAnswer"}
+
+			quizKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[0][0], arrayOfFourPosibleAnswer[0][1]),
+					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[1][0], arrayOfFourPosibleAnswer[1][1]),
+				),
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[2][0], arrayOfFourPosibleAnswer[2][1]),
+					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[3][0], arrayOfFourPosibleAnswer[3][1]),
+				),
+			) // prepare randomized answer keyboard
+
+			// Show question with randomized keyboard
+			msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[index].Question)
+			msg.ReplyMarkup = quizKeyboard
+			bot.Send(msg)
+
+			// Read quality of answer with usin stopwatch
+			quality := readQuality(&update)
+
+			if index > 0 {
+				log.Printf("index > 0 ")
+				forReview[index-1].FactMetadata.Assess(quality)
+			}
+
+			indexForReview[updateFrom(&update).ID]++
+
+		} else if index == len(forReview) {
+
+			log.Printf("index == len(forReview)")
+
+			log.Printf("index: %v", index)
+			log.Printf("len(forReviw): %v", len(forReview))
+
+			// Read last update
+			quality := readQuality(&update)
 			forReview[index-1].FactMetadata.Assess(quality)
-		}
 
-	} else if index == 0 {
-		//forReview[index].FactMetadata.Assess(3)
-		log.Printf("index == 0")
-		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
+			// Nullify variables
+			indexForReview[updateFrom(&update).ID] = 0
+			stopwatch[updateFrom(&update).ID] = Stopwatch{}
+
+			// Update library for review
+			libraryForReview[updateFrom(&update).ID] = forReview.ForReview()
+
+			// Show finish message and show help again
+			showMessage(bot, update, "Finished!")
+			showHelp(bot, update)
+
+			// Dump facts into base
+			factSet := toFactSet(&forReview)
+			if err := updateFactsInBase(updateFrom(&update), &factSet); err != nil {
+				log.Printf("err: %v\n", err.Error())
+			}
+
+		}
 
 	} else {
+		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
 
-		log.Printf("in: index !< len(forReview)")
-		log.Printf("index: %v", index)
-		log.Printf("len(forReviw): %v", len(forReview))
-
-		// Read last update
-		quality := readQuality(&update)
-		forReview[index-1].FactMetadata.Assess(quality)
-
-		// Nullify variables
-		indexForReview[updateFrom(&update).ID] = 0
-		stopwatch[updateFrom(&update).ID] = Stopwatch{}
-
-		// Show finish message and show help again
-		showMessage(bot, update, "Finished!")
-		showHelp(bot, update)
-
-		// Dump facts into base
-		if err := dumpFacts(updateFrom(&update), &forReview); err != nil {
-			log.Printf("err: %v\n", err.Error())
-		}
 	}
 }
 

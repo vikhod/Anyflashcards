@@ -189,8 +189,10 @@ func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 		return err
 	}
 
-	dumpFacts(user, &dictionary.FactSet)
-	//setDefaultFactMetadata(user)
+	/*
+		dumpFacts(user, &dictionary.FactSet)
+		//setDefaultFactMetadata(user)
+	*/
 
 	return nil
 }
@@ -238,7 +240,7 @@ func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) err
 	return nil
 }
 
-type DictionaryForBase struct {
+type Dictionary struct {
 	ID            primitive.ObjectID `bson:"_id"`
 	FilePath      string             `bson:"filePath"`
 	FactSet       FactSet            `bson:"factSet"`
@@ -267,20 +269,21 @@ type FactMetadata struct {
 	N int `bson:"n"`
 }
 
-func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
+func updateFactsInBase(user *tgbotapi.User, factSet *FactSet) error {
 	for _, fact := range *factSet {
 
-		var factMetadata FactMetadata
-		_, _, ef, n, interval, intervalFrom := fact.Dump()
-		factMetadata.Ef = ef
-		factMetadata.Interval = interval
-		factMetadata.IntervalFrom = intervalFrom
-		factMetadata.N = n
-
+		/*
+			var factMetadata FactMetadata
+			_, _, ef, n, interval, intervalFrom := fact.Dump()
+			factMetadata.Ef = ef
+			factMetadata.Interval = interval
+			factMetadata.IntervalFrom = intervalFrom
+			factMetadata.N = n
+		*/
 		_, err := libraryCollection.UpdateOne(
 			context.TODO(),
 			bson.M{"ownerId": user.ID, "factSet.question": fact.Question},
-			bson.M{"$set": bson.M{"factSet.$.factmetadata": factMetadata}},
+			bson.M{"$set": bson.M{"factSet.$.factmetadata": fact.FactMetadata}},
 		)
 		if err != nil {
 			return err
@@ -292,21 +295,22 @@ func dumpFacts(user *tgbotapi.User, factSet *supermemo.FactSet) error {
 
 func loadFactsFromBase(user *tgbotapi.User) (FactSet, error) {
 
-	var dictionaryForBase DictionaryForBase
+	var dictionary Dictionary
 	var err error
 	if err = libraryCollection.FindOne(
 		context.TODO(),
-		bson.M{"ownerId": user.ID}).Decode(&dictionaryForBase); err != nil {
+		bson.M{"ownerId": user.ID}).Decode(&dictionary); err != nil {
 
 		log.Panic(err)
 		return nil, err
 	}
 
-	return dictionaryForBase.FactSet, err
+	return dictionary.FactSet, err
 }
 
 func dumpFactsToBase(user *tgbotapi.User, factSet *FactSet) error {
-	var dictionary DictionaryForBase
+
+	var dictionary Dictionary
 	//dictionary.FilePath = ""
 	dictionary.FactSet = *factSet
 	dictionary.OwnerUsername = user.UserName
@@ -343,11 +347,11 @@ func toSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
 	return &smFactSet
 }
 
-func toFactSet(smFactSet supermemo.FactSet) FactSet {
+func toFactSet(smFactSet *supermemo.FactSet) FactSet {
 
 	var factSet FactSet
 
-	for _, smFact := range smFactSet {
+	for _, smFact := range *smFactSet {
 
 		q, a, ef, n, interval, intervalFrom := smFact.Dump()
 		fmt.Printf("q, a, ef, n, interval, intervalFrom: %v, %v, %v, %v, %v, %v", q, a, ef, n, interval, intervalFrom)

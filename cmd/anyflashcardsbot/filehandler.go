@@ -49,6 +49,7 @@ func downloadFile(URL, filePath string) error {
 	return nil
 }
 
+/*
 type Dictionary struct {
 	ID            primitive.ObjectID `bson:"_id"`
 	FilePath      string             `bson:"filePath"`
@@ -56,12 +57,12 @@ type Dictionary struct {
 	OwnerUsername string             `bson:"ownerUsername"`
 	OwnerID       int                `bson:"ownerId"`
 }
-
+*/
 func loadDictionary(csvPath string) (dictionary Dictionary) {
 
 	dictionary.ID = primitive.NewObjectID()
 	dictionary.FilePath = csvPath
-	dictionary.FactSet = loadAllFacts(csvPath)
+	dictionary.FactSet = loadFactsFromDisc(csvPath)
 
 	return dictionary
 }
@@ -69,7 +70,7 @@ func loadDictionary(csvPath string) (dictionary Dictionary) {
 func loadFactsFromDisc(csvPath string) (factSet FactSet) {
 
 	smFactSet := loadAllFacts(csvPath)
-	factSet = toFactSet(smFactSet)
+	factSet = toFactSet(&smFactSet)
 
 	return factSet
 }
