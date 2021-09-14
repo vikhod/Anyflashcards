@@ -56,6 +56,7 @@ type User struct {
 	User             tgbotapi.User       `bson:"user"`
 	NativeChatMember tgbotapi.ChatMember `bson:"native_chat_member"`
 	Dictionary       string              `bson:"dictionary"`
+	ReminderTime     string              `bson:"reminder_time"`
 }
 
 var nativeGroupChatID, _ = strconv.ParseInt(os.Getenv("NATIVE_GROUP_CHAT_ID"), 10, 64)
@@ -94,6 +95,7 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 	user.User = *newUser
 	user.NativeChatMember.Status = "member"
 	user.Dictionary = defaultDictionaryPath
+	user.ReminderTime = "9:10"
 
 	// Create chat config for tgbot
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
@@ -138,6 +140,20 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func setReminder(user *tgbotapi.User, time string) error {
+
+	_, err := usersCollection.UpdateOne(
+		context.TODO(),
+		bson.M{"user.id": &user.ID},
+		bson.M{"$set": bson.M{"reminder_time": time}},
+	)
+	if err != nil {
+		return err
 	}
 
 	return nil

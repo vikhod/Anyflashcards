@@ -46,7 +46,7 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardButtonData("Pull dictionary", "pullVocab"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Set reminder time", "setTime"),
+		tgbotapi.NewInlineKeyboardButtonData("Set reminder time", "setReminder"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("<< Back", "back"),
@@ -100,6 +100,7 @@ func main() {
 
 	// Set waiting bool
 	waitingForPushVocab := false
+	waitingForSetReminder := false
 
 	// Connect to database
 	if err := connectMongoDb(); err != nil {
@@ -225,6 +226,10 @@ func main() {
 				showMessage(bot, update, "For pushing your dictionary use /pushVocab")
 			} // handle commands
 
+			if waitingForSetReminder {
+				setReminder(updateFrom(&update), update.Message.Text)
+			}
+
 		} else if update.CallbackQuery != nil {
 
 			// Handle key pressing
@@ -269,6 +274,11 @@ func main() {
 			if callback == "pushVocab" {
 				showMessage(bot, update, "Waiting for your own dictionary .csv file.")
 				waitingForPushVocab = true
+			}
+
+			if callback == "setReminder" {
+				showMessage(bot, update, "Waiting for your time string. Default '20:00'")
+				waitingForSetReminder = true
 			}
 
 			if callback == "back" {
@@ -429,8 +439,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		}
 
 	} else {
-
-		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
+		nextQuestion(bot, update)
 	}
 }
 
@@ -475,7 +484,6 @@ func readQuality(update *tgbotapi.Update) int {
 
 func remind(bot *tgbotapi.BotAPI, id int64) error {
 
-	//var msg tgbotapi.MessageConfig
 	msg := tgbotapi.NewMessage(id, "Time to go. Press Quiz!")
 
 	if _, err := bot.Send(msg); err != nil {
