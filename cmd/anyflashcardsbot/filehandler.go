@@ -49,15 +49,6 @@ func downloadFile(URL, filePath string) error {
 	return nil
 }
 
-/*
-type Dictionary struct {
-	ID            primitive.ObjectID `bson:"_id"`
-	FilePath      string             `bson:"filePath"`
-	FactSet       supermemo.FactSet  `bson:"factSet"`
-	OwnerUsername string             `bson:"ownerUsername"`
-	OwnerID       int                `bson:"ownerId"`
-}
-*/
 func loadDictionary(csvPath string) (dictionary Dictionary) {
 
 	dictionary.ID = primitive.NewObjectID()
@@ -113,20 +104,7 @@ func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
 	switch len(record) {
 	case 2:
 		fact = supermemo.NewFact(record[0], record[1])
-		//log.Printf("fact.FactMetadata: %v\n", fact.FactMetadata)
-		/*
-			q := record[0]
-			a := record[1]
-			ef := 2.5
-			n := 0
-			interval := 0
-			intervalFrom := "0001-01-01"
-			var err error
-			fact, err = supermemo.LoadFact(q, a, ef, int(n), int(interval), intervalFrom)
-			if err != nil {
-				return nil, err
-			}
-		*/
+
 	case 6:
 		q := record[0]
 		a := record[1]

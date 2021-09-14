@@ -1,12 +1,12 @@
 I can help you to remember a lot of the new words.
-Lern words with your own vocabulary.
+Lern words with your own dictionary.
 	
 You can control me by sending these commands:
-
-/run - Start learning your vocabulary
-/random20 - Start learning 10 random words from your vocabulary
-/settings - Configure bot parameters
-/pushVocab - Push your own vocabulary
-/pullVocab - Pull your own vocabulary
-/delVocab - Delete your own vocabulary
-/chVocab - Chouse vocabulary for learning
+start - Start bot
+help - Show this help
+quiz - Start learning
+hot20 - Repeat 20 random words from your dictionary
+settings - Configure bot parameters
+pushdict - Push your own dictionary
+pulldict - Pull your own dictionary
+settime - Set reminder time

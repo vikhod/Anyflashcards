@@ -16,14 +16,14 @@ I can help you to remember a lot of the new words.
 Lern words with your own dictionary.
 	
 You can control me by sending these commands:
-
-/run - Start learning your dictionary
-/random20 - Start learning 10 random words from your dictionary
+/start - Start bot
+/help - Show this help
+/quiz - Start learning
+/hot20 - Repeat 20 random words from your dictionary
 /settings - Configure bot parameters
 /pushdict - Push your own dictionary
 /pulldict - Pull your own dictionary
-/deldict - Delete your own dictionary
-/chdict - Chouse dictionary for learning
+/settime - Set reminder time
 `
 
 var mainMenuKeyboard = tgbotapi.NewInlineKeyboardMarkup(
@@ -46,10 +46,7 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardButtonData("Pull dictionary", "pullVocab"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Delete dictionary", "delVocab"),
-	),
-	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Chouse dictionary", "chVocab"),
+		tgbotapi.NewInlineKeyboardButtonData("Set reminder time", "setTime"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("<< Back", "back"),
@@ -163,20 +160,16 @@ func main() {
 			command := update.Message.Command()
 			if command == "start" {
 
-				// Nullify variables
-				indexForReview[updateFrom(&update).ID] = 0
-				stopwatch[updateFrom(&update).ID] = Stopwatch{}
+				//indexForReview[updateFrom(&update).ID] = 0
+				//stopwatch[updateFrom(&update).ID] = Stopwatch{}
 
-				// Fill and update libraryForReview
-				factSet, err := loadFactsFromBase(updateFrom(&update))
-				if err != nil {
-					log.Panic(err)
-				}
-				smFactSet := toSupermemoFactSet(&factSet)
+				//factSet, err := loadFactsFromBase(updateFrom(&update))
+				//if err != nil {
+				//	log.Panic(err)
+				//}
+				//smFactSet := toSupermemoFactSet(&factSet)
 
-				libraryForReview[updateFrom(&update).ID] = smFactSet.ForReview()
-				//libraryForRandomization[updateFrom(&update).ID] = libraryForReview[updateFrom(&update).ID]
-				//factSetForRandomization[updateFrom(&update).ID] = toFactSet(smFactSet)
+				//libraryForReview[updateFrom(&update).ID] = smFactSet.ForReview()
 
 				showHelp(bot, update)
 
@@ -186,6 +179,7 @@ func main() {
 				showSettings(bot, update)
 
 				// Add command hear
+
 			} else if update.Message.IsCommand() {
 				showMessage(bot, update, "Unrecognized command. Use /help.")
 			}
@@ -236,12 +230,8 @@ func main() {
 			// Handle key pressing
 			callback := update.CallbackQuery.Data
 
-			// Pressed key Quiz
 			if callback == "quiz" {
 
-				log.Printf("In quiz case")
-
-				// Nulify variables
 				indexForReview[updateFrom(&update).ID] = 0
 				stopwatch[updateFrom(&update).ID] = Stopwatch{}
 
@@ -258,19 +248,16 @@ func main() {
 				nextQuestion(bot, update)
 			}
 
-			// Pressed key with correct answer
 			if callback == "correctAnswer" {
-				log.Printf("correctAnswer")
 				nextQuestion(bot, update)
 			}
 
-			// Pressed key with incorrect answer
 			if callback == "incorrectAnswer" {
-				log.Printf("incorrectAnswer")
 				nextQuestion(bot, update)
 			}
-			// Newbie check
-			// Pressed key Settings
+
+			// Newbie check (maybe add later)
+
 			if callback == "settings" {
 				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "What do you want to set?")
 				kbrd := tgbotapi.NewEditMessageReplyMarkup(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, settingsKeyboard)
@@ -278,12 +265,12 @@ func main() {
 				bot.Send(kbrd)
 
 			}
-			// Pressed key Puss
+
 			if callback == "pushVocab" {
 				showMessage(bot, update, "Waiting for your own dictionary .csv file.")
 				waitingForPushVocab = true
 			}
-			// Pressed key << Back
+
 			if callback == "back" {
 				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, help)
 				kbrd := tgbotapi.NewEditMessageReplyMarkup(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, mainMenuKeyboard)
@@ -466,19 +453,17 @@ func readQuality(update *tgbotapi.Update) int {
 		} else if sw.mark.Seconds() > 10 {
 			quality[updateFrom(update).ID] = 3
 		}
+
 	} else if update.CallbackQuery.Data == "incorrectAnswer" {
 		if sw.mark.Seconds() < 5 {
 			quality[updateFrom(update).ID] = 2
 		} else if sw.mark.Seconds() > 5 {
 			quality[updateFrom(update).ID] = 1
 		}
+
 	} else if update.CallbackQuery.Data == "blackout" {
 		quality[updateFrom(update).ID] = 0
 	}
-
-	//} else if update.CallbackQuery.Data == "quiz" {
-	//	quality[updateFrom(update).ID] = 3
-	//}
 
 	return quality[updateFrom(update).ID]
 }

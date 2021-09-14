@@ -129,9 +129,6 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 
 		addDictionary(defaultDictionaryPath, newUser)
 
-		// Set default metadata
-
-		// Update user in database if existent
 	} else if err.Err() != mongo.ErrNoDocuments {
 		_, err := usersCollection.UpdateOne(
 			context.TODO(),
@@ -186,38 +183,12 @@ func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
 		bson.M{"$set": bson.D{{Key: "ownerId", Value: user.ID}, {Key: "ownerUsername", Value: user.UserName}}},
 	)
 	if err != nil {
-		return err
-	}
 
-	/*
-		dumpFacts(user, &dictionary.FactSet)
-		//setDefaultFactMetadata(user)
-	*/
-
-	return nil
-}
-
-/*
-func setDefaultFactMetadata(user *tgbotapi.User) error {
-	var factMetadata FactMetadata
-
-	factMetadata.Ef = float64(2.5)
-	factMetadata.Interval = 0
-	factMetadata.IntervalFrom = ""
-	factMetadata.N = 0
-
-	_, err := libraryCollection.UpdateOne(
-		context.TODO(),
-		bson.M{"ownerId": user.ID, "factSet.factmetadata": bson.M{}},
-		bson.M{"$set": bson.M{"factSet.$[].factmetadata": factMetadata}},
-	)
-	if err != nil {
 		return err
 	}
 
 	return nil
 }
-*/
 
 func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) error {
 	_, err := libraryCollection.DeleteMany(
@@ -272,20 +243,13 @@ type FactMetadata struct {
 func updateFactsInBase(user *tgbotapi.User, factSet *FactSet) error {
 	for _, fact := range *factSet {
 
-		/*
-			var factMetadata FactMetadata
-			_, _, ef, n, interval, intervalFrom := fact.Dump()
-			factMetadata.Ef = ef
-			factMetadata.Interval = interval
-			factMetadata.IntervalFrom = intervalFrom
-			factMetadata.N = n
-		*/
 		_, err := libraryCollection.UpdateOne(
 			context.TODO(),
 			bson.M{"ownerId": user.ID, "factSet.question": fact.Question},
 			bson.M{"$set": bson.M{"factSet.$.factmetadata": fact.FactMetadata}},
 		)
 		if err != nil {
+
 			return err
 		}
 	}
@@ -323,6 +287,7 @@ func dumpFactsToBase(user *tgbotapi.User, factSet *FactSet) error {
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -342,8 +307,8 @@ func toSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
 		smFact, _ := supermemo.LoadFact(q, a, ef, n, interval, intervalFrom)
 
 		smFactSet = append(smFactSet, smFact)
-
 	}
+
 	return &smFactSet
 }
 
@@ -365,9 +330,7 @@ func toFactSet(smFactSet *supermemo.FactSet) FactSet {
 		fact.FactMetadata.IntervalFrom = intervalFrom
 
 		factSet = append(factSet, fact)
-
 	}
 
 	return factSet
-
 }
