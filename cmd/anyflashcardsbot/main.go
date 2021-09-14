@@ -58,9 +58,8 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 
 var (
 	libraryForReview = map[int]supermemo.FactSet{}
-	//libraryForRandomization = map[int]supermemo.FactSet{}
-	indexForReview = map[int]int{}
-	membership     = map[int]string{}
+	indexForReview   = map[int]int{}
+	membership       = map[int]string{}
 )
 
 type Stopwatch struct {
@@ -357,44 +356,31 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 }
 
 func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
+
 	forReview := libraryForReview[updateFrom(&update).ID]
-	forRandomization := libraryForReview[updateFrom(&update).ID]
 	index := indexForReview[updateFrom(&update).ID]
 
-	if len(forReview) > 0 {
-		log.Printf("len(forReview) > 0")
+	// Make slice for randomization
+	forRandomization := make(supermemo.FactSet, len(forReview))
+	copy(forRandomization, forReview)
 
-		// Assess fact metadata witn new quality value
+	if len(forReview) > 0 {
 
 		if index < len(forReview) {
-			log.Printf("index < len(forReview)")
 
-			// Create and fill array of four random answer
-			//smFactSet := forReview.ForReview()
-			//factSet := toFactSet(&forReview)
 			forRandomization = append(forRandomization[:index], forRandomization[index+1:]...)
-
 			arrayOfFourPosibleAnswer := make([][]string, 4)
 
+			// Fill slice for randomization
 			for i := 0; i < 4; i++ {
 
-				arrayOfFourPosibleAnswer[i] = []string{"The Road So Far", "incorrectAnswer"}
+				arrayOfFourPosibleAnswer[i] = []string{"   ...   ", "incorrectAnswer"}
 
-				if len(forRandomization) == 0 {
-					log.Printf("len(factSet) == 0")
-					continue
-
-				} else if len(forRandomization) == 1 {
-					log.Printf("len(factSet) == 1")
-					arrayOfFourPosibleAnswer[i] = append(arrayOfFourPosibleAnswer[i], forRandomization[0].Answer, "incorrectAnswer")
-
-				} else if len(forRandomization) > 1 {
-					log.Printf("len(factSet) > 1")
+				if len(forRandomization) > 0 {
 					randomPosition := rand.Intn(len(forRandomization))
 					arrayOfFourPosibleAnswer[i] = []string{forRandomization[randomPosition].Answer, "incorrectAnswer"}
 					forRandomization = append(forRandomization[:randomPosition], forRandomization[randomPosition+1:]...)
 				}
-
 			}
 
 			// Prepare randomized answer keybord
@@ -410,7 +396,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[2][0], arrayOfFourPosibleAnswer[2][1]),
 					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[3][0], arrayOfFourPosibleAnswer[3][1]),
 				),
-			) // prepare randomized answer keyboard
+			)
 
 			// Show question with randomized keyboard
 			msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[index].Question)
@@ -421,29 +407,20 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			quality := readQuality(&update)
 
 			if index > 0 {
-				log.Printf("index > 0 ")
-				forReview[index-1].FactMetadata.Assess(quality)
+				forReview[index-1].Assess(quality)
 			}
 
 			indexForReview[updateFrom(&update).ID]++
 
 		} else if index == len(forReview) {
 
-			log.Printf("index == len(forReview)")
-
-			log.Printf("index: %v", index)
-			log.Printf("len(forReviw): %v", len(forReview))
-
 			// Read last update
 			quality := readQuality(&update)
-			forReview[index-1].FactMetadata.Assess(quality)
+			forReview[index-1].Assess(quality)
 
 			// Nullify variables
 			indexForReview[updateFrom(&update).ID] = 0
 			stopwatch[updateFrom(&update).ID] = Stopwatch{}
-
-			// Update library for review
-			libraryForReview[updateFrom(&update).ID] = forReview.ForReview()
 
 			// Show finish message and show help again
 			showMessage(bot, update, "Finished!")
@@ -455,11 +432,13 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 				log.Printf("err: %v\n", err.Error())
 			}
 
+			// Update library for review
+			libraryForReview[updateFrom(&update).ID] = forReview.ForReview()
 		}
 
 	} else {
-		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
 
+		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
 	}
 }
 
