@@ -15,7 +15,7 @@ var help = `
 I can help you to remember a lot of the new words.
 Lern words with your own dictionary.
 	
-You can control me by sending these commands:
+You can control me by sending commands:
 /start - Start bot
 /help - Show this help
 /quiz - Start learning
@@ -409,10 +409,6 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			indexForReview[updateFrom(&update).ID] = 0
 			stopwatch[updateFrom(&update).ID] = Stopwatch{}
 
-			// Show finish message and show help again
-			showMessage(bot, update, "Finished!")
-			showHelp(bot, update)
-
 			// Dump facts into base
 			factSet := toFactSet(&forReview)
 			if err := updateFactsInBase(updateFrom(&update), &factSet); err != nil {
@@ -421,6 +417,15 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 			// Update library for review
 			libraryForReview[updateFrom(&update).ID] = forReview.ForReview()
+
+			// Run nextQustion
+			if len(libraryForReview[updateFrom(&update).ID]) > 1 {
+				nextQuestion(bot, update)
+			} else {
+				showMessage(bot, update, "Finished!")
+				showHelp(bot, update)
+			}
+
 		}
 
 	} else {
@@ -466,4 +471,17 @@ func readQuality(update *tgbotapi.Update) int {
 	}
 
 	return quality[updateFrom(update).ID]
+}
+
+func remind(bot *tgbotapi.BotAPI, id int64) error {
+
+	//var msg tgbotapi.MessageConfig
+	msg := tgbotapi.NewMessage(id, "Time to go. Press Quiz!")
+
+	if _, err := bot.Send(msg); err != nil {
+		log.Panic(err)
+		return err
+	}
+
+	return nil
 }

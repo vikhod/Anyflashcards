@@ -287,7 +287,6 @@ func dumpFactsToBase(user *tgbotapi.User, factSet *FactSet) error {
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -307,8 +306,8 @@ func toSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
 		smFact, _ := supermemo.LoadFact(q, a, ef, n, interval, intervalFrom)
 
 		smFactSet = append(smFactSet, smFact)
-	}
 
+	}
 	return &smFactSet
 }
 
@@ -330,6 +329,7 @@ func toFactSet(smFactSet *supermemo.FactSet) FactSet {
 		fact.FactMetadata.IntervalFrom = intervalFrom
 
 		factSet = append(factSet, fact)
+
 	}
 
 	return factSet
