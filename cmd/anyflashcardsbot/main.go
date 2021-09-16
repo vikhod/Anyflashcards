@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/burke/nanomemo/supermemo"
+	"github.com/go-co-op/gocron"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -57,6 +59,7 @@ var (
 	libraryForReview = map[int]supermemo.FactSet{}
 	indexForReview   = map[int]int{}
 	membership       = map[int]string{}
+	reminderChart    = map[int]string{}
 )
 
 type Stopwatch struct {
@@ -120,6 +123,9 @@ func main() {
 	// Add anyflashcardsbot user to database
 	addNewUser(bot, &bot.Self)
 
+	// Fill reminderChart map for remingding
+	setAllReminds(*bot)
+
 	// Go through each update that we're getting from Telegram.
 	for update := range updates {
 
@@ -152,7 +158,6 @@ func main() {
 			if update.Message.NewChatMembers != nil {
 				addNewUsers(bot, update.Message.NewChatMembers)
 			}
-
 			if update.Message.LeftChatMember != nil {
 				leftUser(bot, update.Message.LeftChatMember)
 			}
@@ -161,25 +166,15 @@ func main() {
 			command := update.Message.Command()
 			if command == "start" {
 
-				//indexForReview[updateFrom(&update).ID] = 0
-				//stopwatch[updateFrom(&update).ID] = Stopwatch{}
-
-				//factSet, err := loadFactsFromBase(updateFrom(&update))
-				//if err != nil {
-				//	log.Panic(err)
-				//}
-				//smFactSet := toSupermemoFactSet(&factSet)
-
-				//libraryForReview[updateFrom(&update).ID] = smFactSet.ForReview()
-
 				showHelp(bot, update)
-
 			} else if command == "help" {
+
 				showHelp(bot, update)
 			} else if command == "settings" {
+
 				showSettings(bot, update)
 
-				// Add command hear
+				// Add commands hear
 
 			} else if update.Message.IsCommand() {
 				showMessage(bot, update, "Unrecognized command. Use /help.")
@@ -222,12 +217,15 @@ func main() {
 					showMessage(bot, update, "Still waiting for your own dictionary .csv file.")
 				}
 			} else if !waitingForPushVocab && update.Message.Document != nil {
-				// Pushed file but not in time
-				showMessage(bot, update, "For pushing your dictionary use /pushVocab")
-			} // handle commands
 
+				showMessage(bot, update, "For pushing your dictionary use /pushVocab")
+			}
+
+			// Handle time for seting reminder
 			if waitingForSetReminder {
 				setReminder(updateFrom(&update), update.Message.Text)
+				setAllReminds(*bot)
+				waitingForSetReminder = false
 			}
 
 		} else if update.CallbackQuery != nil {
@@ -246,9 +244,7 @@ func main() {
 					log.Panic(err)
 				}
 				smFactSet := toSupermemoFactSet(&factSet)
-
 				libraryForReview[updateFrom(&update).ID] = smFactSet.ForReview()
-				//libraryForRandomization[updateFrom(&update).ID] = libraryForReview[updateFrom(&update).ID]
 
 				nextQuestion(bot, update)
 			}
@@ -277,7 +273,7 @@ func main() {
 			}
 
 			if callback == "setReminder" {
-				showMessage(bot, update, "Waiting for your time string. Default '20:00'")
+				showMessage(bot, update, "Waiting for your time string. Send string like 20:00.")
 				waitingForSetReminder = true
 			}
 
@@ -439,7 +435,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 		}
 
 	} else {
-		nextQuestion(bot, update)
+		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
 	}
 }
 
@@ -482,14 +478,38 @@ func readQuality(update *tgbotapi.Update) int {
 	return quality[updateFrom(update).ID]
 }
 
-func remind(bot *tgbotapi.BotAPI, id int64) error {
-
-	msg := tgbotapi.NewMessage(id, "Time to go. Press Quiz!")
+func remind(bot tgbotapi.BotAPI, userId int64) {
+	log.Printf("\"inRemind\": %v\n", "inRemind")
+	msg := tgbotapi.NewMessage(userId, "Time to go. Press Quiz!")
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
-		return err
+	}
+}
+
+var scheduler gocron.Scheduler
+
+//var task = remind()
+
+func setAllReminds(bot tgbotapi.BotAPI) {
+
+	reminderChart, err := getAllReminds()
+	if err != nil {
+		log.Panic(err)
 	}
 
-	return nil
+	for remindId, remindString := range reminderChart {
+
+		location, _ := time.LoadLocation("Europe/Kiev")
+		scheduler = *gocron.NewScheduler(location)
+
+		var task = func() { remind(bot, int64(remindId)) }
+
+		scheduler.Every(1).Day().At(remindString).Do(task)
+		fmt.Printf("remindId: %v\n", remindId)
+		fmt.Printf("remindString: %v\n", remindString)
+		fmt.Printf("location: %v\n", location.String())
+		scheduler.StartAsync()
+
+	}
 }

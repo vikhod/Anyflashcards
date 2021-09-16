@@ -31,7 +31,7 @@ var (
 )
 
 func connectMongoDb() error {
-	// Connect to MongoDB
+	// Connect to MongoDB Default '20:00'
 	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(mongo_url))
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 	user.User = *newUser
 	user.NativeChatMember.Status = "member"
 	user.Dictionary = defaultDictionaryPath
-	user.ReminderTime = "9:10"
+	user.ReminderTime = ""
 
 	// Create chat config for tgbot
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
@@ -157,6 +157,39 @@ func setReminder(user *tgbotapi.User, time string) error {
 	}
 
 	return nil
+}
+
+func getAllReminds() (map[int]string, error) {
+	reminds := map[int]string{}
+	users, err := usersCollection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	for users.Next(context.TODO()) {
+		var user User
+		if err = users.Decode(&user); err != nil {
+			return nil, err
+		}
+
+		if user.ReminderTime != "" {
+			reminds[user.User.ID] = user.ReminderTime
+		}
+	}
+	return reminds, err
+}
+
+func getRemind(userId int) (string, error) {
+	var user User
+	if err := usersCollection.FindOne(
+		context.TODO(),
+		bson.M{"id": userId}).Decode(&user); err != nil {
+
+		log.Panic(err)
+		return "", err
+	} else {
+		return user.ReminderTime, nil
+	}
+
 }
 
 func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
@@ -334,7 +367,6 @@ func toFactSet(smFactSet *supermemo.FactSet) FactSet {
 	for _, smFact := range *smFactSet {
 
 		q, a, ef, n, interval, intervalFrom := smFact.Dump()
-		fmt.Printf("q, a, ef, n, interval, intervalFrom: %v, %v, %v, %v, %v, %v", q, a, ef, n, interval, intervalFrom)
 
 		var fact Fact
 		fact.Question = q
