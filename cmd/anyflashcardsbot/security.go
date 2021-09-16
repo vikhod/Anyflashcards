@@ -11,7 +11,7 @@ var statuses = map[string]string{
 	"restricted":    "invalid",
 }
 
-func updateFrom(update *tgbotapi.Update) (updateInitiatorUser *tgbotapi.User) {
+func getInitiatorUser(update *tgbotapi.Update) (updateInitiatorUser *tgbotapi.User) {
 	if update.CallbackQuery != nil {
 		return update.CallbackQuery.From
 
@@ -41,17 +41,4 @@ func updateFrom(update *tgbotapi.Update) (updateInitiatorUser *tgbotapi.User) {
 	} else {
 		return nil
 	}
-
 }
-
-/*
-func contains(array []int, number int) bool {
-	for _, value := range array {
-		if value == number {
-			return true
-		}
-	}
-
-	return false
-}
-*/

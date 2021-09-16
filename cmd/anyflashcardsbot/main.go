@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -116,7 +115,7 @@ func main() {
 	}
 
 	// Fill users map for security checking
-	if err := fillMembershipMap(); err != nil {
+	if membership, err = loadAllUsersStatusFromBase(); err != nil {
 		log.Panic(err)
 	}
 
@@ -124,20 +123,20 @@ func main() {
 	addNewUser(bot, &bot.Self)
 
 	// Fill reminderChart map for remingding
-	setAllReminds(*bot)
+	setAllReminds(bot)
 
 	// Go through each update that we're getting from Telegram.
 	for update := range updates {
 
 		// Check membership in native group
-		status := membership[updateFrom(&update).ID]
+		status := membership[getInitiatorUser(&update).ID]
 		if statuses[status] == "" {
 
-			if err := addNewUser(bot, updateFrom(&update)); err != nil {
+			if err := addNewUser(bot, getInitiatorUser(&update)); err != nil {
 				log.Panic(err)
 			}
 
-			if err := fillMembershipMap(); err != nil {
+			if membership, err = loadAllUsersStatusFromBase(); err != nil {
 				log.Panic(err)
 			}
 
@@ -145,7 +144,7 @@ func main() {
 
 		} else if statuses[status] != "valid" {
 
-			if err := fillMembershipMap(); err != nil {
+			if membership, err = loadAllUsersStatusFromBase(); err != nil {
 				log.Panic(err)
 			}
 
@@ -159,7 +158,7 @@ func main() {
 				addNewUsers(bot, update.Message.NewChatMembers)
 			}
 			if update.Message.LeftChatMember != nil {
-				leftUser(bot, update.Message.LeftChatMember)
+				oustUser(bot, update.Message.LeftChatMember.ID)
 			}
 
 			// Handle commands
@@ -193,8 +192,8 @@ func main() {
 						}
 
 						// Make dir and download file
-						os.Mkdir(strconv.Itoa(updateFrom(&update).ID), os.ModePerm)
-						csvDictionaryPath := "./" + strconv.Itoa(updateFrom(&update).ID) + "/" + update.Message.Document.FileName
+						os.Mkdir(strconv.Itoa(getInitiatorUser(&update).ID), os.ModePerm)
+						csvDictionaryPath := "./" + strconv.Itoa(getInitiatorUser(&update).ID) + "/" + update.Message.Document.FileName
 						downloadFile(fileDirectUrl, csvDictionaryPath)
 
 						// Push dict to postgress
@@ -223,8 +222,8 @@ func main() {
 
 			// Handle time for seting reminder
 			if waitingForSetReminder {
-				setReminder(updateFrom(&update), update.Message.Text)
-				setAllReminds(*bot)
+				dumpReminderToBase(getInitiatorUser(&update), update.Message.Text)
+				setAllReminds(bot)
 				waitingForSetReminder = false
 			}
 
@@ -235,16 +234,16 @@ func main() {
 
 			if callback == "quiz" {
 
-				indexForReview[updateFrom(&update).ID] = 0
-				stopwatch[updateFrom(&update).ID] = Stopwatch{}
+				indexForReview[getInitiatorUser(&update).ID] = 0
+				stopwatch[getInitiatorUser(&update).ID] = Stopwatch{}
 
 				// Update libraryForReview
-				factSet, err := loadFactsFromBase(updateFrom(&update))
+				factSet, err := loadFactsFromBase(getInitiatorUser(&update))
 				if err != nil {
 					log.Panic(err)
 				}
-				smFactSet := toSupermemoFactSet(&factSet)
-				libraryForReview[updateFrom(&update).ID] = smFactSet.ForReview()
+				smFactSet := convertToSupermemoFactSet(&factSet)
+				libraryForReview[getInitiatorUser(&update).ID] = smFactSet.ForReview()
 
 				nextQuestion(bot, update)
 			}
@@ -350,8 +349,8 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 
 func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
-	forReview := libraryForReview[updateFrom(&update).ID]
-	index := indexForReview[updateFrom(&update).ID]
+	forReview := libraryForReview[getInitiatorUser(&update).ID]
+	index := indexForReview[getInitiatorUser(&update).ID]
 
 	// Make slice for randomization
 	forRandomization := make(supermemo.FactSet, len(forReview))
@@ -403,7 +402,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 				forReview[index-1].Assess(quality)
 			}
 
-			indexForReview[updateFrom(&update).ID]++
+			indexForReview[getInitiatorUser(&update).ID]++
 
 		} else if index == len(forReview) {
 
@@ -412,20 +411,20 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 			forReview[index-1].Assess(quality)
 
 			// Nullify variables
-			indexForReview[updateFrom(&update).ID] = 0
-			stopwatch[updateFrom(&update).ID] = Stopwatch{}
+			indexForReview[getInitiatorUser(&update).ID] = 0
+			stopwatch[getInitiatorUser(&update).ID] = Stopwatch{}
 
 			// Dump facts into base
-			factSet := toFactSet(&forReview)
-			if err := updateFactsInBase(updateFrom(&update), &factSet); err != nil {
+			factSet := convertToFactSet(&forReview)
+			if err := updateFactsInBase(getInitiatorUser(&update), &factSet); err != nil {
 				log.Printf("err: %v\n", err.Error())
 			}
 
 			// Update library for review
-			libraryForReview[updateFrom(&update).ID] = forReview.ForReview()
+			libraryForReview[getInitiatorUser(&update).ID] = forReview.ForReview()
 
 			// Run nextQustion
-			if len(libraryForReview[updateFrom(&update).ID]) > 1 {
+			if len(libraryForReview[getInitiatorUser(&update).ID]) > 1 {
 				nextQuestion(bot, update)
 			} else {
 				showMessage(bot, update, "Finished!")
@@ -440,9 +439,9 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 }
 
 func readQuality(update *tgbotapi.Update) int {
-	sw := stopwatch[updateFrom(update).ID]
+	sw := stopwatch[getInitiatorUser(update).ID]
 
-	if indexForReview[updateFrom(update).ID] != 0 {
+	if indexForReview[getInitiatorUser(update).ID] != 0 {
 		sw.mark = time.Since(sw.start)
 		sw.start = time.Now()
 
@@ -453,32 +452,32 @@ func readQuality(update *tgbotapi.Update) int {
 
 	log.Printf("sw.mark: %v\n", sw.mark)
 
-	stopwatch[updateFrom(update).ID] = sw
+	stopwatch[getInitiatorUser(update).ID] = sw
 
 	if update.CallbackQuery.Data == "correctAnswer" {
 		if sw.mark.Seconds() < 5 {
-			quality[updateFrom(update).ID] = 5
+			quality[getInitiatorUser(update).ID] = 5
 		} else if sw.mark.Seconds() > 5 && sw.mark.Seconds() < 10 {
-			quality[updateFrom(update).ID] = 4
+			quality[getInitiatorUser(update).ID] = 4
 		} else if sw.mark.Seconds() > 10 {
-			quality[updateFrom(update).ID] = 3
+			quality[getInitiatorUser(update).ID] = 3
 		}
 
 	} else if update.CallbackQuery.Data == "incorrectAnswer" {
 		if sw.mark.Seconds() < 5 {
-			quality[updateFrom(update).ID] = 2
+			quality[getInitiatorUser(update).ID] = 2
 		} else if sw.mark.Seconds() > 5 {
-			quality[updateFrom(update).ID] = 1
+			quality[getInitiatorUser(update).ID] = 1
 		}
 
 	} else if update.CallbackQuery.Data == "blackout" {
-		quality[updateFrom(update).ID] = 0
+		quality[getInitiatorUser(update).ID] = 0
 	}
 
-	return quality[updateFrom(update).ID]
+	return quality[getInitiatorUser(update).ID]
 }
 
-func remind(bot tgbotapi.BotAPI, userId int64) {
+func remind(bot tgbotapi.BotAPI, userId int64) { // Delete affter inproving sendMessage fun
 	log.Printf("\"inRemind\": %v\n", "inRemind")
 	msg := tgbotapi.NewMessage(userId, "Time to go. Press Quiz!")
 
@@ -487,28 +486,23 @@ func remind(bot tgbotapi.BotAPI, userId int64) {
 	}
 }
 
-var scheduler gocron.Scheduler
+var scheduler gocron.Scheduler // Check nesesarity
 
-//var task = remind()
+func setAllReminds(bot *tgbotapi.BotAPI) {
 
-func setAllReminds(bot tgbotapi.BotAPI) {
-
-	reminderChart, err := getAllReminds()
+	remindsChart, err := loadAllRemindsFromBase()
 	if err != nil {
 		log.Panic(err)
 	}
 
-	for remindId, remindString := range reminderChart {
+	for userId, remindTime := range remindsChart {
 
 		location, _ := time.LoadLocation("Europe/Kiev")
 		scheduler = *gocron.NewScheduler(location)
 
-		var task = func() { remind(bot, int64(remindId)) }
+		var task = func() { remind(*bot, int64(userId)) }
 
-		scheduler.Every(1).Day().At(remindString).Do(task)
-		fmt.Printf("remindId: %v\n", remindId)
-		fmt.Printf("remindString: %v\n", remindString)
-		fmt.Printf("location: %v\n", location.String())
+		scheduler.Every(1).Day().At(remindTime).Do(task)
 		scheduler.StartAsync()
 
 	}

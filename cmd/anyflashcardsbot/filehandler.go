@@ -61,13 +61,12 @@ func loadDictionary(csvPath string) (dictionary Dictionary) {
 func loadFactsFromDisc(csvPath string) (factSet FactSet) {
 
 	smFactSet := loadAllFacts(csvPath)
-	factSet = toFactSet(&smFactSet)
+	factSet = convertToFactSet(&smFactSet)
 
 	return factSet
 }
 
 func dumpFactsToDisc(user *tgbotapi.User, factSet *FactSet) error {
-
 	return nil
 }
 

@@ -61,21 +61,23 @@ type User struct {
 
 var nativeGroupChatID, _ = strconv.ParseInt(os.Getenv("NATIVE_GROUP_CHAT_ID"), 10, 64)
 
-func fillMembershipMap() error {
+func loadAllUsersStatusFromBase() (map[int]string, error) {
+
+	statuses := map[int]string{}
 	users, err := usersCollection.Find(context.TODO(), bson.M{})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	for users.Next(context.TODO()) {
 		var user User
 		if err = users.Decode(&user); err != nil {
-			return err
+			return nil, err
 		}
-		membership[user.User.ID] = user.NativeChatMember.Status
+		statuses[user.User.ID] = user.NativeChatMember.Status
 	}
 
-	return nil
+	return statuses, nil
 }
 
 var defaultDictionaryPath = "./configs/dictionaries/owsi.csv"
@@ -145,7 +147,7 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 	return nil
 }
 
-func setReminder(user *tgbotapi.User, time string) error {
+func dumpReminderToBase(user *tgbotapi.User, time string) error {
 
 	_, err := usersCollection.UpdateOne(
 		context.TODO(),
@@ -159,7 +161,7 @@ func setReminder(user *tgbotapi.User, time string) error {
 	return nil
 }
 
-func getAllReminds() (map[int]string, error) {
+func loadAllRemindsFromBase() (map[int]string, error) {
 	reminds := map[int]string{}
 	users, err := usersCollection.Find(context.TODO(), bson.M{})
 	if err != nil {
@@ -178,7 +180,7 @@ func getAllReminds() (map[int]string, error) {
 	return reminds, err
 }
 
-func getRemind(userId int) (string, error) {
+func loadRemindFromBase(userId int) (string, error) {
 	var user User
 	if err := usersCollection.FindOne(
 		context.TODO(),
@@ -189,13 +191,12 @@ func getRemind(userId int) (string, error) {
 	} else {
 		return user.ReminderTime, nil
 	}
-
 }
 
-func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
+func oustUser(bot *tgbotapi.BotAPI, oustUserID int) error {
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
 	chatConfigWithUser.ChatID = nativeGroupChatID
-	chatConfigWithUser.UserID = leftUser.ID
+	chatConfigWithUser.UserID = oustUserID
 
 	chatMember, err := bot.GetChatMember(chatConfigWithUser)
 	if err != nil {
@@ -204,7 +205,7 @@ func leftUser(bot *tgbotapi.BotAPI, leftUser *tgbotapi.User) error {
 
 	_, err = usersCollection.UpdateOne(
 		context.TODO(),
-		bson.M{"user.id": &leftUser.ID},
+		bson.M{"user.id": oustUserID},
 		bson.M{"$set": bson.M{"native_chat_member": chatMember}},
 	)
 
@@ -339,7 +340,7 @@ func dumpFactsToBase(user *tgbotapi.User, factSet *FactSet) error {
 	return nil
 }
 
-func toSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
+func convertToSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
 
 	var smFactSet supermemo.FactSet
 
@@ -360,7 +361,7 @@ func toSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
 	return &smFactSet
 }
 
-func toFactSet(smFactSet *supermemo.FactSet) FactSet {
+func convertToFactSet(smFactSet *supermemo.FactSet) FactSet {
 
 	var factSet FactSet
 
