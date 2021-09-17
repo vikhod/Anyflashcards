@@ -147,11 +147,11 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 	return nil
 }
 
-func dumpReminderToBase(user *tgbotapi.User, time string) error {
+func dumpReminderToBase(userId int, time string) error {
 
 	_, err := usersCollection.UpdateOne(
 		context.TODO(),
-		bson.M{"user.id": &user.ID},
+		bson.M{"user.id": userId},
 		bson.M{"$set": bson.M{"reminder_time": time}},
 	)
 	if err != nil {
@@ -290,12 +290,12 @@ type FactMetadata struct {
 	N int `bson:"n"`
 }
 
-func updateFactsInBase(user *tgbotapi.User, factSet *FactSet) error {
+func updateFactsInBase(userId int, factSet *FactSet) error {
 	for _, fact := range *factSet {
 
 		_, err := libraryCollection.UpdateOne(
 			context.TODO(),
-			bson.M{"ownerId": user.ID, "factSet.question": fact.Question},
+			bson.M{"ownerId": userId, "factSet.question": fact.Question},
 			bson.M{"$set": bson.M{"factSet.$.factmetadata": fact.FactMetadata}},
 		)
 		if err != nil {

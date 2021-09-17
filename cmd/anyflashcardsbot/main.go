@@ -166,10 +166,10 @@ func main() {
 			command := update.Message.Command()
 			if command == "start" {
 
-				showHelp(bot, update)
+				showHelp(bot, update.Message.From.ID)
 			} else if command == "help" {
 
-				showHelp(bot, update)
+				showHelp(bot, update.Message.From.ID)
 			} else if command == "settings" {
 
 				showSettings(bot, update)
@@ -177,7 +177,7 @@ func main() {
 				// Add commands hear
 
 			} else if update.Message.IsCommand() {
-				showMessage(bot, update, "Unrecognized command. Use /help.")
+				showMessage(bot, update.Message.From.ID, "Unrecognized command. Use /help.")
 			}
 
 			// Handle file
@@ -193,8 +193,8 @@ func main() {
 						}
 
 						// Make dir and download file
-						os.Mkdir(strconv.Itoa(getInitiatorUser(&update).ID), os.ModePerm)
-						csvDictionaryPath := "./" + strconv.Itoa(getInitiatorUser(&update).ID) + "/" + update.Message.Document.FileName
+						os.Mkdir(strconv.Itoa(update.Message.From.ID), os.ModePerm)
+						csvDictionaryPath := "./" + strconv.Itoa(update.Message.From.ID) + "/" + update.Message.Document.FileName
 						downloadFile(fileDirectUrl, csvDictionaryPath)
 
 						// Push dict to postgress
@@ -205,25 +205,25 @@ func main() {
 						// Reset waiting bool
 						waitingForPushVocab = false
 
-						showMessage(bot, update, "Vocabulary pushed.")
-						showHelp(bot, update)
+						showMessage(bot, update.Message.From.ID, "Vocabulary pushed.")
+						showHelp(bot, update.Message.From.ID)
 
 					} else {
 						// Pushed not .csv file
-						showMessage(bot, update, "Your file is not .csv. Sent please .csv file.")
+						showMessage(bot, update.Message.From.ID, "Your file is not .csv. Sent please .csv file.")
 					}
 				} else {
 					// Pushed something but not file
-					showMessage(bot, update, "Still waiting for your own dictionary .csv file.")
+					showMessage(bot, update.Message.From.ID, "Still waiting for your own dictionary .csv file.")
 				}
 			} else if !waitingForPushVocab && update.Message.Document != nil {
 
-				showMessage(bot, update, "For pushing your dictionary use /pushVocab")
+				showMessage(bot, update.Message.From.ID, "For pushing your dictionary use /pushVocab")
 			}
 
 			// Handle time for seting reminder
 			if waitingForSetReminder {
-				dumpReminderToBase(getInitiatorUser(&update), update.Message.Text)
+				dumpReminderToBase(update.Message.From.ID, update.Message.Text)
 				setAllReminds(bot)
 				waitingForSetReminder = false
 			}
@@ -235,29 +235,29 @@ func main() {
 
 			if callback == "quiz" {
 
-				indexForReview[getInitiatorUser(&update).ID] = 0
-				stopwatch[getInitiatorUser(&update).ID] = Stopwatch{}
+				indexForReview[update.CallbackQuery.From.ID] = 0
+				stopwatch[update.CallbackQuery.From.ID] = Stopwatch{}
 
 				// Update libraryForReview
-				factSet, err := loadFactsFromBase(getInitiatorUser(&update))
+				factSet, err := loadFactsFromBase(update.CallbackQuery.From)
 				if err != nil {
 					log.Panic(err)
 				}
 				smFactSet := convertToSupermemoFactSet(&factSet)
-				libraryForReview[getInitiatorUser(&update).ID] = smFactSet.ForReview()
+				libraryForReview[update.CallbackQuery.From.ID] = smFactSet.ForReview()
 
-				nextQuestion(bot, update)
+				nextQuestion(bot, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
 			}
 
 			if callback == "correctAnswer" {
-				nextQuestion(bot, update)
-				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Right")
+				nextQuestion(bot, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
+				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Right!")
 				bot.AnswerCallbackQuery(calbackAnswer)
 			}
 
 			if callback == "incorrectAnswer" {
-				nextQuestion(bot, update)
-				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Right")
+				nextQuestion(bot, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
+				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Wrong!")
 				bot.AnswerCallbackQuery(calbackAnswer)
 			}
 
@@ -272,12 +272,12 @@ func main() {
 			}
 
 			if callback == "pushVocab" {
-				showMessage(bot, update, "Waiting for your own dictionary .csv file.")
+				showMessage(bot, update.CallbackQuery.From.ID, "Waiting for your own dictionary .csv file.")
 				waitingForPushVocab = true
 			}
 
 			if callback == "setReminder" {
-				showMessage(bot, update, "Waiting for your time string. Send string like 20:00.")
+				showMessage(bot, update.CallbackQuery.From.ID, "Waiting for your time string. Send string like 20:00.")
 				waitingForSetReminder = true
 			}
 
@@ -292,16 +292,9 @@ func main() {
 	}
 }
 
-func showHelp(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
-	var msg tgbotapi.MessageConfig
+func showHelp(bot *tgbotapi.BotAPI, userId int) error {
 
-	if update.Message != nil {
-		msg = tgbotapi.NewMessage(update.Message.Chat.ID, help)
-	}
-
-	if update.CallbackQuery != nil {
-		msg = tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, help)
-	}
+	msg := tgbotapi.NewMessage(int64(userId), help)
 
 	msg.ReplyMarkup = mainMenuKeyboard
 	if _, err := bot.Send(msg); err != nil {
@@ -312,16 +305,9 @@ func showHelp(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 	return nil
 }
 
-func showMessage(bot *tgbotapi.BotAPI, update tgbotapi.Update, message string) error {
-	var msg tgbotapi.MessageConfig
+func showMessage(bot *tgbotapi.BotAPI, userId int, message string) error {
 
-	if update.Message != nil {
-		msg = tgbotapi.NewMessage(update.Message.Chat.ID, message)
-	}
-
-	if update.CallbackQuery != nil {
-		msg = tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, message)
-	}
+	msg := tgbotapi.NewMessage(int64(userId), message)
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
@@ -402,10 +388,10 @@ func showAnswerKeybord(bot *tgbotapi.BotAPI, userId int) error {
 	return nil
 }
 
-func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
+func nextQuestion(bot *tgbotapi.BotAPI, userId int, callbackQueryData string) {
 
-	forReview := libraryForReview[getInitiatorUser(&update).ID]
-	index := indexForReview[getInitiatorUser(&update).ID]
+	forReview := libraryForReview[userId]
+	index := indexForReview[userId]
 
 	// Make slice for randomization
 	forRandomization := make(supermemo.FactSet, len(forReview))
@@ -415,57 +401,57 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		if index < len(forReview) {
 
-			if err := showAnswerKeybord(bot, getInitiatorUser(&update).ID); err != nil {
+			if err := showAnswerKeybord(bot, userId); err != nil {
 				log.Panic(err)
 			}
 
 			// Read quality of answer with usin stopwatch
-			quality := readQuality(&update)
+			quality := readQuality(userId, callbackQueryData)
 
 			if index > 0 {
 				forReview[index-1].Assess(quality)
 			}
 
-			indexForReview[getInitiatorUser(&update).ID]++
+			indexForReview[userId]++
 
 		} else if index == len(forReview) {
 
 			// Read last update
-			quality := readQuality(&update)
+			quality := readQuality(userId, callbackQueryData)
 			forReview[index-1].Assess(quality)
 
 			// Nullify variables
-			indexForReview[getInitiatorUser(&update).ID] = 0
-			stopwatch[getInitiatorUser(&update).ID] = Stopwatch{}
+			indexForReview[userId] = 0
+			stopwatch[userId] = Stopwatch{}
 
 			// Dump facts into base
 			factSet := convertToFactSet(&forReview)
-			if err := updateFactsInBase(getInitiatorUser(&update), &factSet); err != nil {
+			if err := updateFactsInBase(userId, &factSet); err != nil {
 				log.Printf("err: %v\n", err.Error())
 			}
 
 			// Update library for review
-			libraryForReview[getInitiatorUser(&update).ID] = forReview.ForReview()
+			libraryForReview[userId] = forReview.ForReview()
 
 			// Run nextQustion
-			if len(libraryForReview[getInitiatorUser(&update).ID]) > 1 {
-				nextQuestion(bot, update)
+			if len(libraryForReview[userId]) > 1 {
+				nextQuestion(bot, userId, callbackQueryData)
 			} else {
-				showMessage(bot, update, "Finished!")
-				showHelp(bot, update)
+				showMessage(bot, userId, "Finished!")
+				showHelp(bot, userId)
 			}
 		}
 
 	} else {
 
-		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
+		showMessage(bot, userId, "Nothing for repetition today! Try Hot20.")
 	}
 }
 
-func readQuality(update *tgbotapi.Update) int {
-	sw := stopwatch[getInitiatorUser(update).ID]
+func readQuality(userId int, calbackQueryData string) int {
+	sw := stopwatch[userId]
 
-	if indexForReview[getInitiatorUser(update).ID] != 0 {
+	if indexForReview[userId] != 0 {
 		sw.mark = time.Since(sw.start)
 		sw.start = time.Now()
 
@@ -476,29 +462,29 @@ func readQuality(update *tgbotapi.Update) int {
 
 	log.Printf("sw.mark: %v\n", sw.mark)
 
-	stopwatch[getInitiatorUser(update).ID] = sw
+	stopwatch[userId] = sw
 
-	if update.CallbackQuery.Data == "correctAnswer" {
+	if calbackQueryData == "correctAnswer" {
 		if sw.mark.Seconds() < 5 {
-			quality[getInitiatorUser(update).ID] = 5
+			quality[userId] = 5
 		} else if sw.mark.Seconds() > 5 && sw.mark.Seconds() < 10 {
-			quality[getInitiatorUser(update).ID] = 4
+			quality[userId] = 4
 		} else if sw.mark.Seconds() > 10 {
-			quality[getInitiatorUser(update).ID] = 3
+			quality[userId] = 3
 		}
 
-	} else if update.CallbackQuery.Data == "incorrectAnswer" {
+	} else if calbackQueryData == "incorrectAnswer" {
 		if sw.mark.Seconds() < 5 {
-			quality[getInitiatorUser(update).ID] = 2
+			quality[userId] = 2
 		} else if sw.mark.Seconds() > 5 {
-			quality[getInitiatorUser(update).ID] = 1
+			quality[userId] = 1
 		}
 
-	} else if update.CallbackQuery.Data == "blackout" {
-		quality[getInitiatorUser(update).ID] = 0
+	} else if calbackQueryData == "blackout" {
+		quality[userId] = 0
 	}
 
-	return quality[getInitiatorUser(update).ID]
+	return quality[userId]
 }
 
 func remind(bot tgbotapi.BotAPI, userId int64) { // Delete affter inproving sendMessage fun
@@ -531,3 +517,9 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 
 	}
 }
+
+/**
+*TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership
+*TODO Div function showHelp and function showMainKeyboard
+
+ */
