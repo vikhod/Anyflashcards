@@ -9,6 +9,7 @@ import (
 
 	"github.com/burke/nanomemo/supermemo"
 	"github.com/go-co-op/gocron"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
@@ -58,7 +59,7 @@ var (
 	libraryForReview = map[int]supermemo.FactSet{}
 	indexForReview   = map[int]int{}
 	membership       = map[int]string{}
-	reminderChart    = map[int]string{}
+	remindsChart     = map[int]string{}
 )
 
 type Stopwatch struct {
@@ -250,10 +251,14 @@ func main() {
 
 			if callback == "correctAnswer" {
 				nextQuestion(bot, update)
+				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Right")
+				bot.AnswerCallbackQuery(calbackAnswer)
 			}
 
 			if callback == "incorrectAnswer" {
 				nextQuestion(bot, update)
+				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Right")
+				bot.AnswerCallbackQuery(calbackAnswer)
 			}
 
 			// Newbie check (maybe add later)
