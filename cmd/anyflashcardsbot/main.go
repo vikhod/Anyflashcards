@@ -55,6 +55,56 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	),
 )
 
+func showAnswerKeybord(bot tgbotapi.BotAPI, userId int) error {
+
+	forReview := libraryForReview[userId]
+	index := indexForReview[userId]
+
+	log.Printf("len(forReview): %v\n", len(forReview))
+	log.Printf("index: %v\n", index)
+
+	// Make slice for randomization
+	forRandomization := make(supermemo.FactSet, len(forReview))
+	copy(forRandomization, forReview)
+
+	forRandomization = append(forRandomization[:index], forRandomization[index+1:]...)
+	arrayOfFourPosibleAnswer := make([][]string, 4)
+
+	// Fill slice for randomization
+	for i := 0; i < 4; i++ {
+
+		log.Printf("i: %v\n", i)
+		arrayOfFourPosibleAnswer[i] = []string{"   ...   ", "incorrectAnswer"}
+
+		if len(forRandomization) > 0 {
+			randomPosition := rand.Intn(len(forRandomization))
+			arrayOfFourPosibleAnswer[i] = []string{forRandomization[randomPosition].Answer, "incorrectAnswer"}
+			forRandomization = append(forRandomization[:randomPosition], forRandomization[randomPosition+1:]...)
+		}
+	}
+
+	randomOfFour := rand.Intn(3)
+	arrayOfFourPosibleAnswer[randomOfFour] = []string{forReview[index].Answer, "correctAnswer"}
+
+	quizKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[0][0], arrayOfFourPosibleAnswer[0][1]),
+			tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[1][0], arrayOfFourPosibleAnswer[1][1]),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[2][0], arrayOfFourPosibleAnswer[2][1]),
+			tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[3][0], arrayOfFourPosibleAnswer[3][1]),
+		),
+	)
+	msg := tgbotapi.NewMessage(int64(userId), forReview[index].Question)
+	msg.ReplyMarkup = quizKeyboard
+	if _, err := bot.Send(msg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 var (
 	libraryForReview = map[int]supermemo.FactSet{}
 	indexForReview   = map[int]int{}
@@ -365,40 +415,9 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 
 		if index < len(forReview) {
 
-			forRandomization = append(forRandomization[:index], forRandomization[index+1:]...)
-			arrayOfFourPosibleAnswer := make([][]string, 4)
-
-			// Fill slice for randomization
-			for i := 0; i < 4; i++ {
-
-				arrayOfFourPosibleAnswer[i] = []string{"   ...   ", "incorrectAnswer"}
-
-				if len(forRandomization) > 0 {
-					randomPosition := rand.Intn(len(forRandomization))
-					arrayOfFourPosibleAnswer[i] = []string{forRandomization[randomPosition].Answer, "incorrectAnswer"}
-					forRandomization = append(forRandomization[:randomPosition], forRandomization[randomPosition+1:]...)
-				}
+			if err := showAnswerKeybord(*bot, getInitiatorUser(&update).ID); err != nil {
+				log.Panic(err)
 			}
-
-			// Prepare randomized answer keybord
-			randomOfFour := rand.Intn(3)
-			arrayOfFourPosibleAnswer[randomOfFour] = []string{forReview[index].Answer, "correctAnswer"}
-
-			quizKeyboard := tgbotapi.NewInlineKeyboardMarkup(
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[0][0], arrayOfFourPosibleAnswer[0][1]),
-					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[1][0], arrayOfFourPosibleAnswer[1][1]),
-				),
-				tgbotapi.NewInlineKeyboardRow(
-					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[2][0], arrayOfFourPosibleAnswer[2][1]),
-					tgbotapi.NewInlineKeyboardButtonData(arrayOfFourPosibleAnswer[3][0], arrayOfFourPosibleAnswer[3][1]),
-				),
-			)
-
-			// Show question with randomized keyboard
-			msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, forReview[index].Question)
-			msg.ReplyMarkup = quizKeyboard
-			bot.Send(msg)
 
 			// Read quality of answer with usin stopwatch
 			quality := readQuality(&update)
@@ -435,10 +454,10 @@ func nextQuestion(bot *tgbotapi.BotAPI, update tgbotapi.Update) {
 				showMessage(bot, update, "Finished!")
 				showHelp(bot, update)
 			}
-
 		}
 
 	} else {
+
 		showMessage(bot, update, "Nothing for repetition today! Try Hot20.")
 	}
 }
