@@ -518,7 +518,7 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 	}
 }
 
-/**
+/*
 *TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership
 *TODO Div function showHelp and function showMainKeyboard
 
