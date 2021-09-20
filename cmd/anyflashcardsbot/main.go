@@ -170,13 +170,12 @@ func main() {
 			// Handle commands
 			command := update.Message.Command()
 			if command == "start" {
+				showMainMeny(bot, update.Message.From.ID)
 
-				showHelp(bot, update.Message.From.ID)
 			} else if command == "help" {
+				showMainMeny(bot, update.Message.From.ID)
 
-				showHelp(bot, update.Message.From.ID)
 			} else if command == "settings" {
-
 				showSettings(bot, update)
 
 				// Add commands hear
@@ -211,7 +210,7 @@ func main() {
 						waitingForPushVocab = false
 
 						showMessage(bot, update.Message.From.ID, "Vocabulary pushed.")
-						showHelp(bot, update.Message.From.ID)
+						showMainMeny(bot, update.Message.From.ID)
 
 					} else {
 						// Pushed not .csv file
@@ -297,7 +296,21 @@ func main() {
 	}
 }
 
+/*
 func showHelp(bot *tgbotapi.BotAPI, userId int) error {
+
+	msg := tgbotapi.NewMessage(int64(userId), help)
+
+	//msg.ReplyMarkup = mainMenuKeyboard
+	if _, err := bot.Send(msg); err != nil {
+		log.Panic(err)
+		return err
+	}
+
+	return nil
+}
+*/
+func showMainMeny(bot *tgbotapi.BotAPI, userId int) error {
 
 	msg := tgbotapi.NewMessage(int64(userId), help)
 
@@ -443,7 +456,7 @@ func nextQuestion(bot *tgbotapi.BotAPI, userId int, callbackQueryData string) {
 				nextQuestion(bot, userId, callbackQueryData)
 			} else {
 				showMessage(bot, userId, "Finished!")
-				showHelp(bot, userId)
+				showMainMeny(bot, userId)
 			}
 		}
 
@@ -492,14 +505,16 @@ func readQuality(userId int, calbackQueryData string) int {
 	return quality[userId]
 }
 
+/*
 func remind(bot tgbotapi.BotAPI, userId int64) { // Delete affter inproving sendMessage fun
 	log.Printf("\"inRemind\": %v\n", "inRemind")
-	msg := tgbotapi.NewMessage(userId, "Time to go. Press Quiz!")
+	msg := tgbotapi.NewMessage(userId, )
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
 	}
 }
+*/
 
 var scheduler gocron.Scheduler // Check nesesarity
 
@@ -515,7 +530,7 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 		location, _ := time.LoadLocation("Europe/Kiev")
 		scheduler = *gocron.NewScheduler(location)
 
-		var task = func() { remind(*bot, int64(userId)) }
+		var task = func() { showMessage(bot, userId, "Time to go. Press Quiz!") }
 
 		scheduler.Every(1).Day().At(remindTime).Do(task)
 		scheduler.StartAsync()
