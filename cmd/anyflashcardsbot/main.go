@@ -128,27 +128,32 @@ func main() {
 
 	// Go through each update that we're getting from Telegram.
 	for update := range updates {
+		/*
+			// Check membership in native group
+			status := membership[getInitiatorUser(&update).ID]
+			if statuses[status] == "" {
 
-		// Check membership in native group
-		status := membership[getInitiatorUser(&update).ID]
-		if statuses[status] == "" {
+				if err := addNewUser(bot, getInitiatorUser(&update)); err != nil {
+					log.Panic(err)
+				}
 
-			if err := addNewUser(bot, getInitiatorUser(&update)); err != nil {
-				log.Panic(err)
+				if membership, err = loadAllUsersStatusFromBase(); err != nil {
+					log.Panic(err)
+				}
+
+				continue
+
+			} else if statuses[status] != "valid" {
+
+				if membership, err = loadAllUsersStatusFromBase(); err != nil {
+					log.Panic(err)
+				}
+
+				continue
 			}
+		*/
 
-			if membership, err = loadAllUsersStatusFromBase(); err != nil {
-				log.Panic(err)
-			}
-
-			continue
-
-		} else if statuses[status] != "valid" {
-
-			if membership, err = loadAllUsersStatusFromBase(); err != nil {
-				log.Panic(err)
-			}
-
+		if !checkMembership(bot, &update) {
 			continue
 		}
 
@@ -519,7 +524,7 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 }
 
 /*
-*TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership
+* ! TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
 *TODO Div function showHelp and function showMainKeyboard
 
  */
