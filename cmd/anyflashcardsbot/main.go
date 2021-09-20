@@ -128,30 +128,6 @@ func main() {
 
 	// Go through each update that we're getting from Telegram.
 	for update := range updates {
-		/*
-			// Check membership in native group
-			status := membership[getInitiatorUser(&update).ID]
-			if statuses[status] == "" {
-
-				if err := addNewUser(bot, getInitiatorUser(&update)); err != nil {
-					log.Panic(err)
-				}
-
-				if membership, err = loadAllUsersStatusFromBase(); err != nil {
-					log.Panic(err)
-				}
-
-				continue
-
-			} else if statuses[status] != "valid" {
-
-				if membership, err = loadAllUsersStatusFromBase(); err != nil {
-					log.Panic(err)
-				}
-
-				continue
-			}
-		*/
 
 		if !checkMembership(bot, &update) {
 			continue
@@ -159,7 +135,7 @@ func main() {
 
 		if update.Message != nil {
 
-			// Handle participant messages
+			// Handle membership messages
 			if update.Message.NewChatMembers != nil {
 				addNewUsers(bot, update.Message.NewChatMembers)
 			}
@@ -266,13 +242,8 @@ func main() {
 			}
 
 			// Newbie check (maybe add later)
-
 			if callback == "settings" {
-				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "What do you want to set?")
-				kbrd := tgbotapi.NewEditMessageReplyMarkup(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, settingsKeyboard)
-				bot.Send(msg)
-				bot.Send(kbrd)
-
+				showSettings(bot, update)
 			}
 
 			if callback == "pushVocab" {
@@ -296,20 +267,6 @@ func main() {
 	}
 }
 
-/*
-func showHelp(bot *tgbotapi.BotAPI, userId int) error {
-
-	msg := tgbotapi.NewMessage(int64(userId), help)
-
-	//msg.ReplyMarkup = mainMenuKeyboard
-	if _, err := bot.Send(msg); err != nil {
-		log.Panic(err)
-		return err
-	}
-
-	return nil
-}
-*/
 func showMainMeny(bot *tgbotapi.BotAPI, userId int) error {
 
 	msg := tgbotapi.NewMessage(int64(userId), help)
@@ -540,6 +497,7 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 
 /*
 * ! TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
-*TODO Div function showHelp and function showMainKeyboard
+* ! TODO Div function showHelp and function showMainKeyboard
+
 
  */

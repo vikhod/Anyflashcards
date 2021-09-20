@@ -4,9 +4,4 @@ Lern words with your own dictionary.
 You can control me by sending these commands:
 start - Start bot
 help - Show this help
-quiz - Start learning
-hot20 - Repeat 20 random words from your dictionary
 settings - Configure bot parameters
-pushdict - Push your own dictionary
-pulldict - Pull your own dictionary
-settime - Set reminder time
