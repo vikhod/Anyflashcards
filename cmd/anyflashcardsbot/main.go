@@ -521,7 +521,7 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 * TODO Unite all map in one map or struct
 * TODO Add stop key into Quiz
 * TODO Add blackout key into Quiz
-* TODO
+* TODO Add function for chouse location
 
 
  */
