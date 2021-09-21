@@ -481,7 +481,7 @@ func readQuality(userId int, calbackQueryData string) int {
 }
 
 func showRemind(bot tgbotapi.BotAPI, userId int64) {
-	log.Printf("\"inRemind\": %v\n", "inRemind")
+
 	msg := tgbotapi.NewMessage(userId, "Time to go! Press `Quiz.`")
 
 	if _, err := bot.Send(msg); err != nil {
@@ -490,7 +490,6 @@ func showRemind(bot tgbotapi.BotAPI, userId int64) {
 }
 
 var scheduler gocron.Scheduler // Check nesesarity
-
 func setAllReminds(bot *tgbotapi.BotAPI) {
 
 	remindsChart, err := loadAllRemindsFromBase()
@@ -512,9 +511,12 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 }
 
 /*
+Done:
+TODO Div function showHelp and function showMainKeyboard
+
 * ! TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
-* ! TODO Div function showHelp and function showMainKeyboard
-* TODO Rewrite security function
+* ! TODO Rewrite security function
+
 * TODO Clean db functions
 * TODO Rewrite file handler
 * TODO Add exeptions into time handler
@@ -522,6 +524,7 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 * TODO Add stop key into Quiz
 * TODO Add blackout key into Quiz
 * TODO Add function for chouse location
+* TODO Rewrite all messages wih html
 
 
- */
+*/

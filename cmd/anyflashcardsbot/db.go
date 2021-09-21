@@ -59,8 +59,22 @@ type User struct {
 	ReminderTime     string              `bson:"reminder_time"`
 }
 
-var nativeGroupChatID, _ = strconv.ParseInt(os.Getenv("NATIVE_GROUP_CHAT_ID"), 10, 64)
+/*
+func loadAllUsersFromBase() (users []User, err error) {
 
+	//statuses := map[int]string{}
+	cursor, err := usersCollection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = cursor.All(context.TODO(), &users); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+*/
 func loadAllUsersStatusFromBase() (map[int]string, error) {
 
 	statuses := map[int]string{}
@@ -89,6 +103,8 @@ func addNewUsers(bot *tgbotapi.BotAPI, newUsers *[]tgbotapi.User) error {
 
 	return nil
 }
+
+var nativeGroupChatID, _ = strconv.ParseInt(os.Getenv("NATIVE_GROUP_CHAT_ID"), 10, 64)
 
 func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 	// Create struct for new user
@@ -384,3 +400,32 @@ func convertToFactSet(smFactSet *supermemo.FactSet) FactSet {
 
 	return factSet
 }
+
+/*
+Functions list:
+
+connectMongoDb - OK
+
+loadAllUsersStatusFromBase | - connect togather into loadAllUsersFromBase
+loadAllRemindsFromBase     |
+
+
+dumpReminderToBase
+
+addNewUsers
+addNewUser
+oustUser
+
+addDictionary
+updateDefaultLibrary
+updateFactsInBase
+
+loadFactsFromBase
+dumpFactsToBase
+
+convertToSupermemoFactSet
+convertToFactSet
+
+readFactsFromDisc
+writeFactsToDisc
+*/
