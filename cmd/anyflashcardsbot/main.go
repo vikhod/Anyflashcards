@@ -141,6 +141,9 @@ func main() {
 			}
 			if update.Message.LeftChatMember != nil {
 				oustUser(bot, update.Message.LeftChatMember.ID)
+				if membership, err = loadAllUsersStatusFromBase(); err != nil {
+					log.Panic(err)
+				}
 			}
 
 			// Handle commands
@@ -242,6 +245,7 @@ func main() {
 			}
 
 			// Newbie check (maybe add later)
+
 			if callback == "settings" {
 				showSettings(bot, update)
 			}
@@ -267,6 +271,20 @@ func main() {
 	}
 }
 
+/*
+func showHelp(bot *tgbotapi.BotAPI, userId int) error {
+
+	msg := tgbotapi.NewMessage(int64(userId), help)
+
+	//msg.ReplyMarkup = mainMenuKeyboard
+	if _, err := bot.Send(msg); err != nil {
+		log.Panic(err)
+		return err
+	}
+
+	return nil
+}
+*/
 func showMainMeny(bot *tgbotapi.BotAPI, userId int) error {
 
 	msg := tgbotapi.NewMessage(int64(userId), help)
@@ -462,16 +480,14 @@ func readQuality(userId int, calbackQueryData string) int {
 	return quality[userId]
 }
 
-/*
-func remind(bot tgbotapi.BotAPI, userId int64) { // Delete affter inproving sendMessage fun
+func showRemind(bot tgbotapi.BotAPI, userId int64) {
 	log.Printf("\"inRemind\": %v\n", "inRemind")
-	msg := tgbotapi.NewMessage(userId, )
+	msg := tgbotapi.NewMessage(userId, "Time to go! Press `Quiz.`")
 
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
 	}
 }
-*/
 
 var scheduler gocron.Scheduler // Check nesesarity
 
@@ -487,7 +503,7 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 		location, _ := time.LoadLocation("Europe/Kiev")
 		scheduler = *gocron.NewScheduler(location)
 
-		var task = func() { showMessage(bot, userId, "Time to go. Press Quiz!") }
+		var task = func() { showRemind(*bot, int64(userId)) }
 
 		scheduler.Every(1).Day().At(remindTime).Do(task)
 		scheduler.StartAsync()
@@ -498,6 +514,14 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 /*
 * ! TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
 * ! TODO Div function showHelp and function showMainKeyboard
+* TODO Rewrite security function
+* TODO Clean db functions
+* TODO Rewrite file handler
+* TODO Add exeptions into time handler
+* TODO Unite all map in one map or struct
+* TODO Add stop key into Quiz
+* TODO Add blackout key into Quiz
+* TODO
 
 
  */

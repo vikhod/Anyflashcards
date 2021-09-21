@@ -180,6 +180,7 @@ func loadAllRemindsFromBase() (map[int]string, error) {
 	return reminds, err
 }
 
+/*
 func loadRemindFromBase(userId int) (string, error) {
 	var user User
 	if err := usersCollection.FindOne(
@@ -192,7 +193,7 @@ func loadRemindFromBase(userId int) (string, error) {
 		return user.ReminderTime, nil
 	}
 }
-
+*/
 func oustUser(bot *tgbotapi.BotAPI, oustUserID int) error {
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
 	chatConfigWithUser.ChatID = nativeGroupChatID
