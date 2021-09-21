@@ -406,11 +406,11 @@ Functions list:
 
 connectMongoDb - OK
 
-loadAllUsersStatusFromBase | - connect togather into loadAllUsersFromBase
-loadAllRemindsFromBase     |
+loadAllUsersStatusFromBase - OK
+loadAllRemindsFromBase     - OK
 
 
-dumpReminderToBase
+dumpReminderToBase - OK
 
 addNewUsers
 addNewUser
