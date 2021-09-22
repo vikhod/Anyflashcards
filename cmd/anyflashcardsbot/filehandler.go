@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 
 	"github.com/burke/nanomemo/supermemo"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func downloadFile(URL, filePath string) error {
@@ -48,13 +48,15 @@ func downloadFile(URL, filePath string) error {
 	return nil
 }
 
-func readDictionaryFromDisc(csvPath string) (dictionary Dictionary) {
+func readDictionaryFromDisc(csvPath string) (dictionary Dictionary, err error) {
 
-	dictionary.ID = primitive.NewObjectID()
-	dictionary.FilePath = csvPath
-	dictionary.FactSet, _ = readFactsFromDisc(csvPath)
+	dictionary.DictionaryMetadata.FilePath = csvPath
+	dictionary.FactSet, err = readFactsFromDisc(csvPath)
+	if err != nil {
+		return dictionary, err
+	}
 
-	return dictionary
+	return dictionary, nil
 }
 
 func readFactsFromDisc(csvPath string) (factSet FactSet, err error) {
@@ -175,13 +177,15 @@ func pushDictionary(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
 			}
 
 			// Push dict to postgress
-			factSet, err := readFactsFromDisc(csvDictionaryPath)
+			dictionary, err := readDictionaryFromDisc(csvDictionaryPath)
 			if err != nil {
 				return err
 			}
-			if err := dumpFactsToBase(update.Message.From, &factSet); err != nil {
+			id, err := dumpDictionaryToBase(update.Message.From, &dictionary)
+			if err != nil {
 				return err
 			}
+			log.Printf("id: %v\n", id)
 
 			// Reset waiting bool
 			waitingForDictionary = false
@@ -200,3 +204,8 @@ func pushDictionary(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
 
 	return nil
 }
+
+/*
+readFactsFromDisc - add
+writeFactsToDisc - add
+*/

@@ -139,7 +139,7 @@ func main() {
 				addNewUsers(bot, update.Message.NewChatMembers)
 			}
 			if update.Message.LeftChatMember != nil {
-				oustUser(bot, update.Message.LeftChatMember.ID)
+				deleteUser(bot, update.Message.LeftChatMember.ID)
 				if membership, err = loadAllUsersStatusFromBase(); err != nil {
 					log.Panic(err)
 				}
@@ -470,18 +470,19 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 Done:
 TODO Div function showHelp and function showMainKeyboard
 TODO Rewrite file handler
+TODO Clean db functions, dell addDictionary
 
 * ! TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
 * ! TODO Rewrite security function
 
-* TODO Clean db functions
+* TODO Add function chouse dictionary
 *
+* TODO Add taking id for each dump function
+* TODO Add correct answer into each callback message
 * TODO Add exeptions into time handler
 * TODO Unite all map in one map or struct
 * TODO Add stop key into Quiz
 * TODO Add blackout key into Quiz
 * TODO Add function for chouse location
 * TODO Rewrite all messages wih html
-
-
 */

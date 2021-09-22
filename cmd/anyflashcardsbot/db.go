@@ -75,6 +75,7 @@ func loadAllUsersFromBase() (users []User, err error) {
 	return users, nil
 }
 */
+
 func loadAllUsersStatusFromBase() (map[int]string, error) {
 
 	statuses := map[int]string{}
@@ -92,6 +93,39 @@ func loadAllUsersStatusFromBase() (map[int]string, error) {
 	}
 
 	return statuses, nil
+}
+
+func loadAllRemindsFromBase() (map[int]string, error) {
+	reminds := map[int]string{}
+	users, err := usersCollection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	for users.Next(context.TODO()) {
+		var user User
+		if err = users.Decode(&user); err != nil {
+			return nil, err
+		}
+
+		if user.ReminderTime != "" {
+			reminds[user.User.ID] = user.ReminderTime
+		}
+	}
+	return reminds, err
+}
+
+func dumpReminderToBase(userId int, time string) error {
+
+	_, err := usersCollection.UpdateOne(
+		context.TODO(),
+		bson.M{"user.id": userId},
+		bson.M{"$set": bson.M{"reminder_time": time}},
+	)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 var defaultDictionaryPath = "./configs/dictionaries/owsi.csv"
@@ -147,7 +181,9 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 			return err
 		}
 
-		addDictionary(defaultDictionaryPath, newUser)
+		//addDictionary(defaultDictionaryPath, newUser)
+		//readDictionaryFromDisc(csvPath string)
+		// Add copy dictionary function
 
 	} else if err.Err() != mongo.ErrNoDocuments {
 		_, err := usersCollection.UpdateOne(
@@ -163,54 +199,7 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 	return nil
 }
 
-func dumpReminderToBase(userId int, time string) error {
-
-	_, err := usersCollection.UpdateOne(
-		context.TODO(),
-		bson.M{"user.id": userId},
-		bson.M{"$set": bson.M{"reminder_time": time}},
-	)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func loadAllRemindsFromBase() (map[int]string, error) {
-	reminds := map[int]string{}
-	users, err := usersCollection.Find(context.TODO(), bson.M{})
-	if err != nil {
-		return nil, err
-	}
-	for users.Next(context.TODO()) {
-		var user User
-		if err = users.Decode(&user); err != nil {
-			return nil, err
-		}
-
-		if user.ReminderTime != "" {
-			reminds[user.User.ID] = user.ReminderTime
-		}
-	}
-	return reminds, err
-}
-
-/*
-func loadRemindFromBase(userId int) (string, error) {
-	var user User
-	if err := usersCollection.FindOne(
-		context.TODO(),
-		bson.M{"id": userId}).Decode(&user); err != nil {
-
-		log.Panic(err)
-		return "", err
-	} else {
-		return user.ReminderTime, nil
-	}
-}
-*/
-func oustUser(bot *tgbotapi.BotAPI, oustUserID int) error {
+func deleteUser(bot *tgbotapi.BotAPI, oustUserID int) error {
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
 	chatConfigWithUser.ChatID = nativeGroupChatID
 	chatConfigWithUser.UserID = oustUserID
@@ -233,57 +222,22 @@ func oustUser(bot *tgbotapi.BotAPI, oustUserID int) error {
 	return nil
 }
 
-func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
-	dictionary := readDictionaryFromDisc(csvDictionaryPath)
-
-	id, err := libraryCollection.InsertOne(
-		context.TODO(),
-		dictionary,
-	)
-	if err != nil {
-		return err
-	}
-
-	_, err = libraryCollection.UpdateOne(
-		context.TODO(),
-		bson.M{"_id": id.InsertedID},
-		bson.M{"$set": bson.D{{Key: "ownerId", Value: user.ID}, {Key: "ownerUsername", Value: user.UserName}}},
-	)
-	if err != nil {
-
-		return err
-	}
-
-	return nil
-}
-
-func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) error {
-	_, err := libraryCollection.DeleteMany(
-		context.TODO(),
-		bson.M{"ownerId": user.ID},
-	)
-	if err != nil {
-		return err
-	}
-
-	csvDictionariesPathes, err := os.ReadDir(defaultLibraryDirPath)
-	if err != nil {
-		return err
-	}
-
-	for _, csvDictionaryPath := range csvDictionariesPathes {
-		addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), user)
-	}
-
-	return nil
-}
-
 type Dictionary struct {
-	ID            primitive.ObjectID `bson:"_id"`
-	FilePath      string             `bson:"filePath"`
-	FactSet       FactSet            `bson:"factSet"`
-	OwnerUsername string             `bson:"ownerUsername"`
-	OwnerID       int                `bson:"ownerId"`
+	ID                 primitive.ObjectID `bson:"_id"`
+	FactSet            FactSet            `bson:"factSet"`
+	DictionaryMetadata DictionaryMetadata `bson:"dictionaryMetadata"`
+}
+
+type DictionaryMetadata struct {
+	Name string
+	// Where is dictionary loaded from
+	FilePath      string `bson:"filePath"`
+	OwnerUsername string `bson:"ownerUsername"`
+	OwnerID       int    `bson:"ownerId"`
+	// Public or private, private is available only for owner
+	Privacy string
+	// Default dictionary for all users
+	DefaultDictionary bool `bson:"defaultDictionary"`
 }
 
 type FactSet []Fact
@@ -307,12 +261,39 @@ type FactMetadata struct {
 	N int `bson:"n"`
 }
 
+func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) error {
+	_, err := libraryCollection.DeleteMany(
+		context.TODO(),
+		bson.M{"dictionaryMetadata.ownerId": user.ID},
+	)
+	if err != nil {
+		return err
+	}
+
+	csvDictionariesPathes, err := os.ReadDir(defaultLibraryDirPath)
+	if err != nil {
+		return err
+	}
+
+	for _, csvDictionaryPath := range csvDictionariesPathes {
+		//addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), user)
+		csvPath := defaultLibraryDirPath + "/" + csvDictionaryPath.Name()
+		dictionary, err := readDictionaryFromDisc(csvPath)
+		if err != nil {
+			return err
+		}
+		dumpDictionaryToBase(user, &dictionary)
+	}
+
+	return nil
+}
+
 func updateFactsInBase(userId int, factSet *FactSet) error {
 	for _, fact := range *factSet {
 
 		_, err := libraryCollection.UpdateOne(
 			context.TODO(),
-			bson.M{"ownerId": userId, "factSet.question": fact.Question},
+			bson.M{"dictionaryMetadata.ownerId": userId, "factSet.question": fact.Question},
 			bson.M{"$set": bson.M{"factSet.$.factmetadata": fact.FactMetadata}},
 		)
 		if err != nil {
@@ -330,7 +311,7 @@ func loadFactsFromBase(user *tgbotapi.User) (FactSet, error) {
 	var err error
 	if err = libraryCollection.FindOne(
 		context.TODO(),
-		bson.M{"ownerId": user.ID}).Decode(&dictionary); err != nil {
+		bson.M{"dictionaryMetadata.ownerId": user.ID}).Decode(&dictionary); err != nil {
 
 		log.Panic(err)
 		return nil, err
@@ -339,22 +320,20 @@ func loadFactsFromBase(user *tgbotapi.User) (FactSet, error) {
 	return dictionary.FactSet, err
 }
 
-func dumpFactsToBase(user *tgbotapi.User, factSet *FactSet) error {
+func dumpDictionaryToBase(user *tgbotapi.User, dictionary *Dictionary) (id interface{}, err error) {
 
-	var dictionary Dictionary
-	//dictionary.FilePath = ""
-	dictionary.FactSet = *factSet
-	dictionary.OwnerUsername = user.UserName
-	dictionary.OwnerID = user.ID
+	dictionary.ID = primitive.NewObjectID()
+	dictionary.DictionaryMetadata.OwnerUsername = user.UserName
+	dictionary.DictionaryMetadata.OwnerID = user.ID
 
-	_, err := libraryCollection.InsertOne(
+	result, err := libraryCollection.InsertOne(
 		context.TODO(),
 		dictionary,
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return result.InsertedID, nil
 }
 
 func convertToSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
@@ -411,18 +390,13 @@ dumpReminderToBase - OK
 
 addNewUsers
 addNewUser
-oustUser
+deleteUser
 
-addDictionary - ?
-updateDefaultLibrary - ?
-
+updateDefaultLibrary
 updateFactsInBase
 loadFactsFromBase
-dumpFactsToBase
+dumpDictionaryToBase
 
 convertToSupermemoFactSet
 convertToFactSet
-
-readFactsFromDisc - add
-writeFactsToDisc - add
 */
