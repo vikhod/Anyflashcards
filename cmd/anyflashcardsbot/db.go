@@ -234,7 +234,7 @@ func oustUser(bot *tgbotapi.BotAPI, oustUserID int) error {
 }
 
 func addDictionary(csvDictionaryPath string, user *tgbotapi.User) error {
-	dictionary := loadDictionary(csvDictionaryPath)
+	dictionary := readDictionaryFromDisc(csvDictionaryPath)
 
 	id, err := libraryCollection.InsertOne(
 		context.TODO(),

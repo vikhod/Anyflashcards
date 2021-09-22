@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -49,21 +48,24 @@ func downloadFile(URL, filePath string) error {
 	return nil
 }
 
-func loadDictionary(csvPath string) (dictionary Dictionary) {
+func readDictionaryFromDisc(csvPath string) (dictionary Dictionary) {
 
 	dictionary.ID = primitive.NewObjectID()
 	dictionary.FilePath = csvPath
-	dictionary.FactSet = readFactsFromDisc(csvPath)
+	dictionary.FactSet, _ = readFactsFromDisc(csvPath)
 
 	return dictionary
 }
 
-func readFactsFromDisc(csvPath string) (factSet FactSet) {
+func readFactsFromDisc(csvPath string) (factSet FactSet, err error) {
 
-	smFactSet := loadAllFacts(csvPath)
+	smFactSet, err := loadAllFacts(csvPath)
+	if err != nil {
+		return nil, err
+	}
 	factSet = convertToFactSet(&smFactSet)
 
-	return factSet
+	return factSet, nil
 }
 
 func writeFactsToDisc(csvPath string, factSet FactSet) error {
@@ -92,14 +94,12 @@ func writeFactsToDisc(csvPath string, factSet FactSet) error {
 	return nil
 }
 
-func loadAllFacts(csvPath string) supermemo.FactSet {
+func loadAllFacts(csvPath string) (smFactSet supermemo.FactSet, err error) {
 	f, err := os.Open(csvPath)
 	if err != nil {
-		log.Fatalf("Couldn't open %s: %s\n", csvPath, err.Error())
+		return nil, err
 	}
 	defer f.Close()
-
-	var fs supermemo.FactSet
 
 	csvr := csv.NewReader(f)
 	csvr.FieldsPerRecord = -1
@@ -109,15 +109,15 @@ func loadAllFacts(csvPath string) supermemo.FactSet {
 			if err == io.EOF {
 				break
 			}
-			log.Fatalf("Couldnt' read csv: %s\n", err.Error())
+			return nil, err
 		}
-		fs, err = addFact(fs, record)
+		smFactSet, err = addFact(smFactSet, record)
 		if err != nil {
-			log.Fatalf("Couldnt' parse csv: %s\n", err.Error())
+			return nil, err
 		}
 	}
 
-	return fs
+	return smFactSet, nil
 }
 
 func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
@@ -153,4 +153,50 @@ func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
 	fs = append(fs, fact)
 
 	return fs, nil
+}
+
+func pushDictionary(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
+	if update.Message.Document != nil {
+		if update.Message.Document.MimeType == "text/csv" || update.Message.Document.MimeType == "text/comma-separated-values" {
+
+			fileDirectUrl, err := bot.GetFileDirectURL(update.Message.Document.FileID)
+			if err != nil {
+				return err
+			}
+
+			// Make dir and download file
+			if err := os.Mkdir(strconv.Itoa(update.Message.From.ID), os.ModePerm); err != nil {
+				return err
+			}
+			csvDictionaryPath := "./" + strconv.Itoa(update.Message.From.ID) + "/" + update.Message.Document.FileName
+
+			if err := downloadFile(fileDirectUrl, csvDictionaryPath); err != nil {
+				return err
+			}
+
+			// Push dict to postgress
+			factSet, err := readFactsFromDisc(csvDictionaryPath)
+			if err != nil {
+				return err
+			}
+			if err := dumpFactsToBase(update.Message.From, &factSet); err != nil {
+				return err
+			}
+
+			// Reset waiting bool
+			waitingForDictionary = false
+
+			showMessage(bot, update.Message.From.ID, "Vocabulary pushed.")
+			showMainMeny(bot, update.Message.From.ID)
+
+		} else {
+			// Pushed not .csv file
+			showMessage(bot, update.Message.From.ID, "Your file is not .csv. Sent please .csv file.")
+		}
+	} else {
+		// Pushed something but not file
+		showMessage(bot, update.Message.From.ID, "Still waiting for your own dictionary .csv file.")
+	}
+
+	return nil
 }

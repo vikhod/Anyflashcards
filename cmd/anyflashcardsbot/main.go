@@ -4,7 +4,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/burke/nanomemo/supermemo"
@@ -74,6 +73,10 @@ var (
 
 var defaultLibraryDirPath = "./configs/dictionaries"
 
+// Set waiting bool
+var waitingForDictionary = false
+var waitingForTime = false
+
 func main() {
 	// Create bot
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TOKEN"))
@@ -100,10 +103,6 @@ func main() {
 	// a large backlog of old messages
 	time.Sleep(time.Millisecond * 500)
 	updates.Clear()
-
-	// Set waiting bool
-	waitingForPushVocab := false
-	waitingForSetReminder := false
 
 	// Connect to database
 	if err := connectMongoDb(); err != nil {
@@ -164,51 +163,21 @@ func main() {
 			}
 
 			// Handle file
-			if waitingForPushVocab {
-				if update.Message.Document != nil {
-					if update.Message.Document.MimeType == "text/csv" || update.Message.Document.MimeType == "text/comma-separated-values" {
-						// Pushed .csv file
-
-						// Get file direct url
-						fileDirectUrl, err := bot.GetFileDirectURL(update.Message.Document.FileID)
-						if err != nil {
-							log.Panic(err)
-						}
-
-						// Make dir and download file
-						os.Mkdir(strconv.Itoa(update.Message.From.ID), os.ModePerm)
-						csvDictionaryPath := "./" + strconv.Itoa(update.Message.From.ID) + "/" + update.Message.Document.FileName
-						downloadFile(fileDirectUrl, csvDictionaryPath)
-
-						// Push dict to postgress
-						err = addDictionary(csvDictionaryPath, update.Message.From)
-						if err != nil {
-							log.Panic(err)
-						}
-						// Reset waiting bool
-						waitingForPushVocab = false
-
-						showMessage(bot, update.Message.From.ID, "Vocabulary pushed.")
-						showMainMeny(bot, update.Message.From.ID)
-
-					} else {
-						// Pushed not .csv file
-						showMessage(bot, update.Message.From.ID, "Your file is not .csv. Sent please .csv file.")
-					}
-				} else {
-					// Pushed something but not file
-					showMessage(bot, update.Message.From.ID, "Still waiting for your own dictionary .csv file.")
+			if waitingForDictionary {
+				if err = pushDictionary(bot, &update); err != nil {
+					log.Printf("err: %v\n", err)
 				}
-			} else if !waitingForPushVocab && update.Message.Document != nil {
+
+			} else if !waitingForDictionary && update.Message.Document != nil {
 
 				showMessage(bot, update.Message.From.ID, "For pushing your dictionary use /pushVocab")
 			}
 
 			// Handle time for seting reminder
-			if waitingForSetReminder {
+			if waitingForTime {
 				dumpReminderToBase(update.Message.From.ID, update.Message.Text)
 				setAllReminds(bot)
-				waitingForSetReminder = false
+				waitingForTime = false
 			}
 
 		} else if update.CallbackQuery != nil {
@@ -252,12 +221,12 @@ func main() {
 
 			if callback == "pushVocab" {
 				showMessage(bot, update.CallbackQuery.From.ID, "Waiting for your own dictionary .csv file.")
-				waitingForPushVocab = true
+				waitingForDictionary = true
 			}
 
 			if callback == "setReminder" {
 				showMessage(bot, update.CallbackQuery.From.ID, "Waiting for your time string. Send string like 20:00.")
-				waitingForSetReminder = true
+				waitingForTime = true
 			}
 
 			if callback == "back" {
@@ -271,20 +240,6 @@ func main() {
 	}
 }
 
-/*
-func showHelp(bot *tgbotapi.BotAPI, userId int) error {
-
-	msg := tgbotapi.NewMessage(int64(userId), help)
-
-	//msg.ReplyMarkup = mainMenuKeyboard
-	if _, err := bot.Send(msg); err != nil {
-		log.Panic(err)
-		return err
-	}
-
-	return nil
-}
-*/
 func showMainMeny(bot *tgbotapi.BotAPI, userId int) error {
 
 	msg := tgbotapi.NewMessage(int64(userId), help)
@@ -514,12 +469,13 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 /*
 Done:
 TODO Div function showHelp and function showMainKeyboard
+TODO Rewrite file handler
 
 * ! TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
 * ! TODO Rewrite security function
 
 * TODO Clean db functions
-* TODO Rewrite file handler
+*
 * TODO Add exeptions into time handler
 * TODO Unite all map in one map or struct
 * TODO Add stop key into Quiz
