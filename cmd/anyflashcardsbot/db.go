@@ -395,7 +395,6 @@ func convertToFactSet(smFactSet *supermemo.FactSet) FactSet {
 		fact.FactMetadata.IntervalFrom = intervalFrom
 
 		factSet = append(factSet, fact)
-
 	}
 
 	return factSet
@@ -408,24 +407,22 @@ connectMongoDb - OK
 
 loadAllUsersStatusFromBase - OK
 loadAllRemindsFromBase     - OK
-
-
 dumpReminderToBase - OK
 
 addNewUsers
 addNewUser
 oustUser
 
-addDictionary
-updateDefaultLibrary
-updateFactsInBase
+addDictionary - ?
+updateDefaultLibrary - ?
 
+updateFactsInBase
 loadFactsFromBase
 dumpFactsToBase
 
 convertToSupermemoFactSet
 convertToFactSet
 
-readFactsFromDisc
-writeFactsToDisc
+readFactsFromDisc - add
+writeFactsToDisc - add
 */

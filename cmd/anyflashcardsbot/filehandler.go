@@ -53,12 +53,12 @@ func loadDictionary(csvPath string) (dictionary Dictionary) {
 
 	dictionary.ID = primitive.NewObjectID()
 	dictionary.FilePath = csvPath
-	dictionary.FactSet = loadFactsFromDisc(csvPath)
+	dictionary.FactSet = readFactsFromDisc(csvPath)
 
 	return dictionary
 }
 
-func loadFactsFromDisc(csvPath string) (factSet FactSet) {
+func readFactsFromDisc(csvPath string) (factSet FactSet) {
 
 	smFactSet := loadAllFacts(csvPath)
 	factSet = convertToFactSet(&smFactSet)
@@ -66,7 +66,29 @@ func loadFactsFromDisc(csvPath string) (factSet FactSet) {
 	return factSet
 }
 
-func dumpFactsToDisc(user *tgbotapi.User, factSet *FactSet) error {
+func writeFactsToDisc(csvPath string, factSet FactSet) error {
+
+	file, err := os.OpenFile(csvPath, os.O_WRONLY, 0660)
+	if err != nil {
+		return err
+	}
+
+	csvw := csv.NewWriter(file)
+
+	for _, fact := range factSet {
+		ef := fmt.Sprintf("%0.6f", fact.FactMetadata.Ef)
+		n := fmt.Sprintf("%d", fact.FactMetadata.N)
+		interval := fmt.Sprintf("%d", fact.FactMetadata.Interval)
+
+		csvw.Write([]string{fact.Question, fact.Answer, ef, n, interval, fact.FactMetadata.IntervalFrom})
+	}
+
+	csvw.Flush()
+
+	if err = file.Close(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

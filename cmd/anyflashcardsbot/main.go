@@ -492,7 +492,8 @@ func showRemind(bot tgbotapi.BotAPI, userId int64) {
 var scheduler gocron.Scheduler // Check nesesarity
 func setAllReminds(bot *tgbotapi.BotAPI) {
 
-	remindsChart, err := loadAllRemindsFromBase()
+	var err error
+	remindsChart, err = loadAllRemindsFromBase()
 	if err != nil {
 		log.Panic(err)
 	}
