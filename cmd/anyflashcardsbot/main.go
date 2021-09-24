@@ -32,7 +32,7 @@ var mainMenuKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardButtonData("Quiz", "quiz"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Hot20", "Hot20"),
+		tgbotapi.NewInlineKeyboardButtonData("Hot20", "hot20"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("Settings", "settings"),
@@ -41,13 +41,16 @@ var mainMenuKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 
 var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Push dictionary", "pushVocab"),
+		tgbotapi.NewInlineKeyboardButtonData("Pick dictionary", "pickDict"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Pull dictionary", "pullVocab"),
+		tgbotapi.NewInlineKeyboardButtonData("Push dictionary", "pushDict"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("Set reminder time", "setReminder"),
+		tgbotapi.NewInlineKeyboardButtonData("Pull dictionary", "pullDict"),
+	),
+	tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("Set reminder time", "setRemTime"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
 		tgbotapi.NewInlineKeyboardButtonData("<< Back", "back"),
@@ -72,9 +75,12 @@ var (
 )
 
 var defaultLibraryDirPath = "./configs/dictionaries"
+var defaultDictionaryName = "owsi.csv"
+var defaultDictionaryId string
 
 // Set waiting bool
-var waitingForDictionary = false
+//var waitingForDictionaryID = false
+var waitingForDictionaryFile = false
 var waitingForTime = false
 
 func main() {
@@ -110,7 +116,10 @@ func main() {
 	}
 
 	// Create and fill default library in database
-	if err := updateDefaultLibrary(defaultLibraryDirPath, &bot.Self); err != nil {
+	if err := updateDefaultLibrary(defaultLibraryDirPath); err != nil {
+		log.Panic(err)
+	}
+	if defaultDictionaryId, err = setDefaultDictionaryInBase(defaultDictionaryName); err != nil {
 		log.Panic(err)
 	}
 
@@ -136,10 +145,12 @@ func main() {
 
 			// Handle membership messages
 			if update.Message.NewChatMembers != nil {
+				log.Printf("\"update.Message.NewChatMembers != nil\": %v\n", "update.Message.NewChatMembers != nil")
 				addNewUsers(bot, update.Message.NewChatMembers)
+				copyDictionaryInBase(defaultDictionaryId)
 			}
 			if update.Message.LeftChatMember != nil {
-				deleteUser(bot, update.Message.LeftChatMember.ID)
+				blockUser(bot, update.Message.LeftChatMember.ID)
 				if membership, err = loadAllUsersStatusFromBase(); err != nil {
 					log.Panic(err)
 				}
@@ -163,14 +174,16 @@ func main() {
 			}
 
 			// Handle file
-			if waitingForDictionary {
-				if err = pushDictionary(bot, &update); err != nil {
+			if waitingForDictionaryFile {
+				if err = pushDictionaryToBase(bot, &update); err != nil {
 					log.Printf("err: %v\n", err)
+				} else {
+					deletePersonalDictionaryFromBase(update.Message.From.ID)
 				}
 
-			} else if !waitingForDictionary && update.Message.Document != nil {
+			} else if !waitingForDictionaryFile && update.Message.Document != nil {
 
-				showMessage(bot, update.Message.From.ID, "For pushing your dictionary use /pushVocab")
+				showMessage(bot, update.Message.From.ID, "For pushing your dictionary use /pushDict")
 			}
 
 			// Handle time for seting reminder
@@ -219,12 +232,23 @@ func main() {
 				showSettings(bot, update)
 			}
 
-			if callback == "pushVocab" {
-				showMessage(bot, update.CallbackQuery.From.ID, "Waiting for your own dictionary .csv file.")
-				waitingForDictionary = true
+			if callback == "pickDict" {
+				showPickDictKeyboard(bot, update.CallbackQuery.From.ID)
+				//waitingForDictionaryID = true
 			}
 
-			if callback == "setReminder" {
+			if ok, _ := stringIsDictionary(callback); ok {
+				log.Printf("\"string is dictionary\": %v\n", "string is dictionary")
+				copyDictionaryInBase(callback)
+				deletePersonalDictionaryFromBase(update.CallbackQuery.From.ID)
+			}
+
+			if callback == "pushDict" {
+				showMessage(bot, update.CallbackQuery.From.ID, "Waiting for your own dictionary .csv file.")
+				waitingForDictionaryFile = true
+			}
+
+			if callback == "setRemTime" {
 				showMessage(bot, update.CallbackQuery.From.ID, "Waiting for your time string. Send string like 20:00.")
 				waitingForTime = true
 			}
@@ -280,6 +304,32 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 	msg.ReplyMarkup = settingsKeyboard
 	if _, err := bot.Send(msg); err != nil {
 		log.Panic(err)
+		return err
+	}
+
+	return nil
+}
+
+func showPickDictKeyboard(bot *tgbotapi.BotAPI, userId int) error {
+
+	dictionaries, err := loadAllPublicDictionaryFromBase()
+	if err != nil {
+		return err
+	}
+
+	msg := tgbotapi.NewMessage(int64(userId), "Pick your dictionary:")
+	pickDictKeyboard := tgbotapi.NewInlineKeyboardMarkup()
+
+	for _, dictionary := range dictionaries {
+		var row []tgbotapi.InlineKeyboardButton
+		btn := tgbotapi.NewInlineKeyboardButtonData(dictionary.DictionaryMetadata.Name, dictionary.ID.String())
+		row = append(row, btn)
+		pickDictKeyboard.InlineKeyboard = append(pickDictKeyboard.InlineKeyboard, row)
+	}
+
+	msg.ReplyMarkup = pickDictKeyboard
+
+	if _, err = bot.Send(msg); err != nil {
 		return err
 	}
 
@@ -468,15 +518,16 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 
 /*
 Done:
-TODO Div function showHelp and function showMainKeyboard
-TODO Rewrite file handler
-TODO Clean db functions, dell addDictionary
+* TODO Div function showHelp and function showMainKeyboard
+* TODO Rewrite file handler
+* TODO Clean db functions, dell addDictionary
+* TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
+* TODO Rewrite security function
 
-* ! TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
-* ! TODO Rewrite security function
+In work:
+* ! TODO Add function chouse dictionary - need to be repaired
 
-* TODO Add function chouse dictionary
-*
+In plan:
 * TODO Add taking id for each dump function
 * TODO Add correct answer into each callback message
 * TODO Add exeptions into time handler
@@ -485,4 +536,5 @@ TODO Clean db functions, dell addDictionary
 * TODO Add blackout key into Quiz
 * TODO Add function for chouse location
 * TODO Rewrite all messages wih html
+* TODO Add functionalyty for send message to creator in error situation
 */

@@ -181,10 +181,6 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 			return err
 		}
 
-		//addDictionary(defaultDictionaryPath, newUser)
-		//readDictionaryFromDisc(csvPath string)
-		// Add copy dictionary function
-
 	} else if err.Err() != mongo.ErrNoDocuments {
 		_, err := usersCollection.UpdateOne(
 			context.TODO(),
@@ -199,7 +195,7 @@ func addNewUser(bot *tgbotapi.BotAPI, newUser *tgbotapi.User) error {
 	return nil
 }
 
-func deleteUser(bot *tgbotapi.BotAPI, oustUserID int) error {
+func blockUser(bot *tgbotapi.BotAPI, oustUserID int) error {
 	var chatConfigWithUser tgbotapi.ChatConfigWithUser
 	chatConfigWithUser.ChatID = nativeGroupChatID
 	chatConfigWithUser.UserID = oustUserID
@@ -229,15 +225,14 @@ type Dictionary struct {
 }
 
 type DictionaryMetadata struct {
-	Name string
-	// Where is dictionary loaded from
-	FilePath      string `bson:"filePath"`
-	OwnerUsername string `bson:"ownerUsername"`
-	OwnerID       int    `bson:"ownerId"`
+	Name string `bson:"name"`
+	Date string `bson:"date"`
+	// Where dictionary was loaded from
+	FilePath string `bson:"filePath"`
+	OwnerID  int    `bson:"ownerId"`
 	// Public or private, private is available only for owner
-	Privacy string
+	Status string `bson:"status"`
 	// Default dictionary for all users
-	DefaultDictionary bool `bson:"defaultDictionary"`
 }
 
 type FactSet []Fact
@@ -259,81 +254,6 @@ type FactMetadata struct {
 	IntervalFrom string `bson:"intervalFrom"`
 	// number of times this fact has been presented; reset to 0 on failed answer.
 	N int `bson:"n"`
-}
-
-func updateDefaultLibrary(defaultLibraryDirPath string, user *tgbotapi.User) error {
-	_, err := libraryCollection.DeleteMany(
-		context.TODO(),
-		bson.M{"dictionaryMetadata.ownerId": user.ID},
-	)
-	if err != nil {
-		return err
-	}
-
-	csvDictionariesPathes, err := os.ReadDir(defaultLibraryDirPath)
-	if err != nil {
-		return err
-	}
-
-	for _, csvDictionaryPath := range csvDictionariesPathes {
-		//addDictionary(defaultLibraryDirPath+"/"+csvDictionaryPath.Name(), user)
-		csvPath := defaultLibraryDirPath + "/" + csvDictionaryPath.Name()
-		dictionary, err := readDictionaryFromDisc(csvPath)
-		if err != nil {
-			return err
-		}
-		dumpDictionaryToBase(user, &dictionary)
-	}
-
-	return nil
-}
-
-func updateFactsInBase(userId int, factSet *FactSet) error {
-	for _, fact := range *factSet {
-
-		_, err := libraryCollection.UpdateOne(
-			context.TODO(),
-			bson.M{"dictionaryMetadata.ownerId": userId, "factSet.question": fact.Question},
-			bson.M{"$set": bson.M{"factSet.$.factmetadata": fact.FactMetadata}},
-		)
-		if err != nil {
-
-			return err
-		}
-	}
-
-	return nil
-}
-
-func loadFactsFromBase(user *tgbotapi.User) (FactSet, error) {
-
-	var dictionary Dictionary
-	var err error
-	if err = libraryCollection.FindOne(
-		context.TODO(),
-		bson.M{"dictionaryMetadata.ownerId": user.ID}).Decode(&dictionary); err != nil {
-
-		log.Panic(err)
-		return nil, err
-	}
-
-	return dictionary.FactSet, err
-}
-
-func dumpDictionaryToBase(user *tgbotapi.User, dictionary *Dictionary) (id interface{}, err error) {
-
-	dictionary.ID = primitive.NewObjectID()
-	dictionary.DictionaryMetadata.OwnerUsername = user.UserName
-	dictionary.DictionaryMetadata.OwnerID = user.ID
-
-	result, err := libraryCollection.InsertOne(
-		context.TODO(),
-		dictionary,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return result.InsertedID, nil
 }
 
 func convertToSupermemoFactSet(factSet *FactSet) *supermemo.FactSet {
@@ -379,6 +299,216 @@ func convertToFactSet(smFactSet *supermemo.FactSet) FactSet {
 	return factSet
 }
 
+func updateFactsInBase(userId int, factSet *FactSet) error {
+	for _, fact := range *factSet {
+
+		_, err := libraryCollection.UpdateOne(
+			context.TODO(),
+			bson.M{"dictionaryMetadata.ownerId": userId, "factSet.question": fact.Question},
+			bson.M{"$set": bson.M{"factSet.$.factmetadata": fact.FactMetadata}},
+		)
+		if err != nil {
+
+			return err
+		}
+	}
+
+	return nil
+}
+
+func loadFactsFromBase(user *tgbotapi.User) (FactSet, error) {
+
+	var dictionary Dictionary
+	var err error
+	if err = libraryCollection.FindOne(
+		context.TODO(),
+		bson.M{"dictionaryMetadata.ownerId": user.ID}).Decode(&dictionary); err != nil {
+
+		log.Panic(err)
+		return nil, err
+	}
+
+	return dictionary.FactSet, err
+}
+
+// Functions for Dictionary
+func updateDefaultLibrary(defaultLibraryDirPath string) error {
+	_, err := libraryCollection.DeleteMany(
+		context.TODO(),
+		bson.M{"dictionaryMetadata.status": "library"},
+	)
+	if err != nil {
+		return err
+	}
+
+	csvDictionariesPathes, err := os.ReadDir(defaultLibraryDirPath)
+	if err != nil {
+		return err
+	}
+
+	for _, csvDictionaryPath := range csvDictionariesPathes {
+
+		csvPath := defaultLibraryDirPath + "/" + csvDictionaryPath.Name()
+		dictionary, err := readDictionaryFromDisc(csvPath)
+		if err != nil {
+			return err
+		}
+
+		dictionary.DictionaryMetadata.Status = "library"
+		dumpDictionaryToBase(&dictionary)
+	}
+
+	return nil
+}
+
+func loadAllPublicDictionaryFromBase() (dictionaries []Dictionary, err error) {
+
+	dictionaryCursor, err := libraryCollection.Find(context.TODO(), bson.M{})
+	if err != nil {
+		return nil, err
+	}
+	for dictionaryCursor.Next(context.TODO()) {
+		var dictionary Dictionary
+		if err = dictionaryCursor.Decode(&dictionary); err != nil {
+			return nil, err
+		}
+
+		if dictionary.DictionaryMetadata.Status == "public" {
+			dictionaries = append(dictionaries, dictionary)
+		}
+	}
+	return dictionaries, nil
+}
+
+func loadDictionaryFromBase(dictionaryId string) (dictionary Dictionary, err error) {
+
+	dictionaryCursor, err := libraryCollection.Find(context.TODO(), bson.M{"_id": dictionaryId})
+	if err != nil {
+		return dictionary, err
+	}
+
+	for dictionaryCursor.Next(context.TODO()) {
+		if err = dictionaryCursor.Decode(&dictionary); err != nil {
+			return dictionary, err
+		}
+	}
+
+	return dictionary, nil
+}
+
+func dumpDictionaryToBase(dictionary *Dictionary) (string, error) {
+
+	dictionary.ID = primitive.NewObjectID()
+
+	_, err := libraryCollection.InsertOne(
+		context.TODO(),
+		dictionary,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return dictionary.ID.String(), nil
+}
+
+func stringIsDictionary(string string) (bool, error) {
+
+	var result *mongo.SingleResult
+	if result = libraryCollection.FindOne(
+		context.TODO(),
+		bson.M{"_id": string}); result.Err() == nil {
+		return true, nil
+	}
+
+	return false, result.Err()
+}
+
+func copyDictionaryInBase(dictionaryId string) (string, error) {
+
+	dictionary, err := loadDictionaryFromBase(dictionaryId)
+	if err != nil {
+		return "", err
+	}
+
+	dictionary.DictionaryMetadata.Status = "current"
+
+	_id, err := dumpDictionaryToBase(&dictionary)
+	if err != nil {
+		return "", err
+	}
+
+	return _id, nil
+}
+
+func deletePersonalDictionaryFromBase(userId int) (err error) {
+
+	_, err = usersCollection.DeleteMany(
+		context.TODO(),
+		bson.M{"dictionaryMetadata.ownerId": userId, "name": "personal"},
+	)
+
+	return nil
+}
+
+/*
+func setDictionaryStatusInBase(dictionaryId string, status string) error {
+
+	_, err := libraryCollection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": dictionaryId},
+		bson.M{"$set": bson.M{"dictionaryMetadata.status": status}},
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+*/
+
+func setDefaultDictionaryInBase(name string) (_id string, err error) {
+
+	result, err := libraryCollection.UpdateOne(
+		context.TODO(),
+		bson.M{"dictionaryMetadata.name": name, "dictionaryMetadata.status": name},
+		bson.M{"$set": bson.M{"dictionaryMetadata.status": "default"}},
+	)
+	_id = fmt.Sprintf("%v", result.UpsertedID)
+	if err != nil {
+		return "", err
+	}
+	return _id, nil
+}
+
+/*
+func setDictionaryOwnerInBase(dictionaryId *string, userId int) error {
+
+	_, err := libraryCollection.UpdateOne(
+		context.TODO(),
+		bson.M{"_id": dictionaryId},
+		bson.M{"$set": bson.M{"dictionaryMetadata.ownerId": userId}},
+	)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+*/
+
+/*
+func getDefaultDictionaryInBase() (_id string, err error) {
+	var dictionary Dictionary
+	if err := libraryCollection.FindOne(
+		context.TODO(),
+		bson.M{"dictionaryMetadata.status": "default"}).Decode(&dictionary); err != nil {
+
+		return "", err
+	}
+
+	_id = dictionary.ID.String()
+
+	return _id, nil
+}
+*/
 /*
 Functions list:
 
@@ -400,3 +530,7 @@ dumpDictionaryToBase
 convertToSupermemoFactSet
 convertToFactSet
 */
+
+/*
+* TODO Add returning id into setDefDictInBase and dell getDefDict
+ */

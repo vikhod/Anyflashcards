@@ -24,11 +24,6 @@ func downloadFile(URL, filePath string) error {
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-
-		// Set up timeout
-		updateConfig := tgbotapi.NewUpdate(0)
-		updateConfig.Timeout = 60
-
 		return fmt.Errorf("received non 200 response code")
 	}
 
@@ -50,26 +45,75 @@ func downloadFile(URL, filePath string) error {
 
 func readDictionaryFromDisc(csvPath string) (dictionary Dictionary, err error) {
 
-	dictionary.DictionaryMetadata.FilePath = csvPath
-	dictionary.FactSet, err = readFactsFromDisc(csvPath)
+	f, err := os.Open(csvPath)
+	if err != nil {
+		return dictionary, err
+	}
+	defer f.Close()
+
+	var smFactSet supermemo.FactSet
+	csvr := csv.NewReader(f)
+	csvr.FieldsPerRecord = -1
+	for {
+		record, err := csvr.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return dictionary, err
+		}
+		smFactSet, err = addFact(smFactSet, record)
+		if err != nil {
+			return dictionary, err
+		}
+	}
+
+	factSet := convertToFactSet(&smFactSet)
+
+	file, err := os.Stat(csvPath)
 	if err != nil {
 		return dictionary, err
 	}
 
+	dictionary.FactSet = factSet
+	dictionary.DictionaryMetadata.Name = file.Name()
+	dictionary.DictionaryMetadata.Date = file.ModTime().String()
+	dictionary.DictionaryMetadata.FilePath = csvPath
+
 	return dictionary, nil
 }
 
+/*
 func readFactsFromDisc(csvPath string) (factSet FactSet, err error) {
 
-	smFactSet, err := loadAllFacts(csvPath)
+	f, err := os.Open(csvPath)
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
+
+	var smFactSet supermemo.FactSet
+	csvr := csv.NewReader(f)
+	csvr.FieldsPerRecord = -1
+	for {
+		record, err := csvr.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		smFactSet, err = addFact(smFactSet, record)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	factSet = convertToFactSet(&smFactSet)
 
 	return factSet, nil
 }
-
+*/
 func writeFactsToDisc(csvPath string, factSet FactSet) error {
 
 	file, err := os.OpenFile(csvPath, os.O_WRONLY, 0660)
@@ -96,6 +140,7 @@ func writeFactsToDisc(csvPath string, factSet FactSet) error {
 	return nil
 }
 
+/*
 func loadAllFacts(csvPath string) (smFactSet supermemo.FactSet, err error) {
 	f, err := os.Open(csvPath)
 	if err != nil {
@@ -121,7 +166,7 @@ func loadAllFacts(csvPath string) (smFactSet supermemo.FactSet, err error) {
 
 	return smFactSet, nil
 }
-
+*/
 func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
 	var fact *supermemo.Fact
 	switch len(record) {
@@ -157,7 +202,8 @@ func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
 	return fs, nil
 }
 
-func pushDictionary(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
+func pushDictionaryToBase(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
+	log.Printf("\"In pushDict\": %v\n", "In pushDict")
 	if update.Message.Document != nil {
 		if update.Message.Document.MimeType == "text/csv" || update.Message.Document.MimeType == "text/comma-separated-values" {
 
@@ -167,30 +213,35 @@ func pushDictionary(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
 			}
 
 			// Make dir and download file
-			if err := os.Mkdir(strconv.Itoa(update.Message.From.ID), os.ModePerm); err != nil {
+			existErr := "mkdir " + strconv.Itoa(update.Message.From.ID) + ": " + "file exists"
+			if err := os.Mkdir(strconv.Itoa(update.Message.From.ID), os.ModePerm); err != nil && err.Error() != existErr {
+				log.Printf("err.Error(): %v\n", err.Error())
 				return err
 			}
-			csvDictionaryPath := "./" + strconv.Itoa(update.Message.From.ID) + "/" + update.Message.Document.FileName
+
+			csvDictionaryPath := "./" + strconv.Itoa(update.Message.From.ID) + "/" + strconv.Itoa(update.UpdateID) + "_" + update.Message.Document.FileName
 
 			if err := downloadFile(fileDirectUrl, csvDictionaryPath); err != nil {
 				return err
 			}
 
-			// Push dict to postgress
 			dictionary, err := readDictionaryFromDisc(csvDictionaryPath)
 			if err != nil {
 				return err
 			}
-			id, err := dumpDictionaryToBase(update.Message.From, &dictionary)
+
+			dictionary.DictionaryMetadata.OwnerID = update.Message.From.ID
+			dictionary.DictionaryMetadata.Status = "private"
+
+			_, err = dumpDictionaryToBase(&dictionary)
 			if err != nil {
 				return err
 			}
-			log.Printf("id: %v\n", id)
 
 			// Reset waiting bool
-			waitingForDictionary = false
+			waitingForDictionaryFile = false
 
-			showMessage(bot, update.Message.From.ID, "Vocabulary pushed.")
+			showMessage(bot, update.Message.From.ID, "Dictionary pushed.")
 			showMainMeny(bot, update.Message.From.ID)
 
 		} else {
@@ -204,8 +255,3 @@ func pushDictionary(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
 
 	return nil
 }
-
-/*
-readFactsFromDisc - add
-writeFactsToDisc - add
-*/
