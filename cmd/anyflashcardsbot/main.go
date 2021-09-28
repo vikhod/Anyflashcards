@@ -8,6 +8,7 @@ import (
 
 	"github.com/burke/nanomemo/supermemo"
 	"github.com/go-co-op/gocron"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
@@ -76,7 +77,7 @@ var (
 
 var defaultLibraryDirPath = "./configs/dictionaries"
 var defaultDictionaryName = "owsi.csv"
-var defaultDictionaryId string
+var defaultDictionaryId primitive.ObjectID
 
 // Set waiting bool
 //var waitingForDictionaryID = false
@@ -129,7 +130,9 @@ func main() {
 	}
 
 	// Add anyflashcardsbot user to database
-	addNewUser(bot, &bot.Self)
+	if err = addNewUser(bot, &bot.Self); err != nil {
+		log.Panic(err)
+	}
 
 	// Fill reminderChart map for remingding
 	setAllReminds(bot)
@@ -147,12 +150,12 @@ func main() {
 			if update.Message.NewChatMembers != nil {
 				log.Printf("\"update.Message.NewChatMembers != nil\": %v\n", "update.Message.NewChatMembers != nil")
 				addNewUsers(bot, update.Message.NewChatMembers)
-				copyDictionaryInBase(defaultDictionaryId)
+				copyDictionaryInBase(&defaultDictionaryId)
 			}
 			if update.Message.LeftChatMember != nil {
 				blockUser(bot, update.Message.LeftChatMember.ID)
 				if membership, err = loadAllUsersStatusFromBase(); err != nil {
-					log.Panic(err)
+					log.Printf("err: %v\n", err)
 				}
 			}
 
@@ -175,10 +178,16 @@ func main() {
 
 			// Handle file
 			if waitingForDictionaryFile {
-				if err = pushDictionaryToBase(bot, &update); err != nil {
+				if _id, err := pushDictionaryToBase(bot, &update); err != nil {
 					log.Printf("err: %v\n", err)
 				} else {
-					deletePersonalDictionaryFromBase(update.Message.From.ID)
+					log.Printf("_id: %v\n", _id)
+					if err = organizePrivateUserDictionariesInBase(update.Message.From.ID); err != nil {
+						log.Printf("err: %v\n", err)
+					}
+					if err = setDictionaryStatusInBase(_id, "current"); err != nil {
+						log.Printf("err: %v\n", err)
+					}
 				}
 
 			} else if !waitingForDictionaryFile && update.Message.Document != nil {
@@ -237,10 +246,24 @@ func main() {
 				//waitingForDictionaryID = true
 			}
 
-			if ok, _ := stringIsDictionary(callback); ok {
-				log.Printf("\"string is dictionary\": %v\n", "string is dictionary")
-				copyDictionaryInBase(callback)
-				deletePersonalDictionaryFromBase(update.CallbackQuery.From.ID)
+			log.Printf("callback: %v\n", callback)
+
+			//log.Printf("_id: %v\n", _id)
+			//log.Printf("err: %v\n", err)
+			/*
+				if ok, _ := stringIsDictionary(callback); ok {
+					log.Printf("\"string is dictionary\": %v\n", "string is dictionary")
+					copyDictionaryInBase(callback)
+					//deletePersonalDictionaryFromBase(update.CallbackQuery.From.ID)
+				}
+			*/
+			if primitive.IsValidObjectID(callback) {
+				log.Printf("primitive.IsValidObjectID(callback): %v\n", primitive.IsValidObjectID(callback))
+				dictionaryId, _ := primitive.ObjectIDFromHex(callback)
+				organizePrivateUserDictionariesInBase(update.CallbackQuery.From.ID)
+				resultDictionaryId, _ := copyDictionaryInBase(&dictionaryId)
+				setDictionaryStatusInBase(resultDictionaryId, "current")
+
 			}
 
 			if callback == "pushDict" {
@@ -321,8 +344,9 @@ func showPickDictKeyboard(bot *tgbotapi.BotAPI, userId int) error {
 	pickDictKeyboard := tgbotapi.NewInlineKeyboardMarkup()
 
 	for _, dictionary := range dictionaries {
+		log.Printf("dictionary.ID.String(): %v\n", dictionary.ID.String())
 		var row []tgbotapi.InlineKeyboardButton
-		btn := tgbotapi.NewInlineKeyboardButtonData(dictionary.DictionaryMetadata.Name, dictionary.ID.String())
+		btn := tgbotapi.NewInlineKeyboardButtonData(dictionary.DictionaryMetadata.Name, dictionary.ID.Hex())
 		row = append(row, btn)
 		pickDictKeyboard.InlineKeyboard = append(pickDictKeyboard.InlineKeyboard, row)
 	}
@@ -523,12 +547,12 @@ Done:
 * TODO Clean db functions, dell addDictionary
 * TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
 * TODO Rewrite security function
+* TODO Add taking id for each dump function
 
 In work:
 * ! TODO Add function chouse dictionary - need to be repaired
 
 In plan:
-* TODO Add taking id for each dump function
 * TODO Add correct answer into each callback message
 * TODO Add exeptions into time handler
 * TODO Unite all map in one map or struct

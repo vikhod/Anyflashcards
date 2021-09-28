@@ -12,6 +12,7 @@ import (
 
 	"github.com/burke/nanomemo/supermemo"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func downloadFile(URL, filePath string) error {
@@ -202,40 +203,39 @@ func addFact(fs supermemo.FactSet, record []string) (supermemo.FactSet, error) {
 	return fs, nil
 }
 
-func pushDictionaryToBase(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
-	log.Printf("\"In pushDict\": %v\n", "In pushDict")
+func pushDictionaryToBase(bot *tgbotapi.BotAPI, update *tgbotapi.Update) (_id *primitive.ObjectID, err error) {
 	if update.Message.Document != nil {
 		if update.Message.Document.MimeType == "text/csv" || update.Message.Document.MimeType == "text/comma-separated-values" {
 
 			fileDirectUrl, err := bot.GetFileDirectURL(update.Message.Document.FileID)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			// Make dir and download file
 			existErr := "mkdir " + strconv.Itoa(update.Message.From.ID) + ": " + "file exists"
 			if err := os.Mkdir(strconv.Itoa(update.Message.From.ID), os.ModePerm); err != nil && err.Error() != existErr {
 				log.Printf("err.Error(): %v\n", err.Error())
-				return err
+				return nil, err
 			}
 
 			csvDictionaryPath := "./" + strconv.Itoa(update.Message.From.ID) + "/" + strconv.Itoa(update.UpdateID) + "_" + update.Message.Document.FileName
 
 			if err := downloadFile(fileDirectUrl, csvDictionaryPath); err != nil {
-				return err
+				return nil, err
 			}
 
 			dictionary, err := readDictionaryFromDisc(csvDictionaryPath)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			dictionary.DictionaryMetadata.OwnerID = update.Message.From.ID
-			dictionary.DictionaryMetadata.Status = "private"
+			//dictionary.DictionaryMetadata.Status = "current"
 
-			_, err = dumpDictionaryToBase(&dictionary)
+			_id, err = dumpDictionaryToBase(&dictionary)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			// Reset waiting bool
@@ -253,5 +253,5 @@ func pushDictionaryToBase(bot *tgbotapi.BotAPI, update *tgbotapi.Update) error {
 		showMessage(bot, update.Message.From.ID, "Still waiting for your own dictionary .csv file.")
 	}
 
-	return nil
+	return _id, nil
 }
