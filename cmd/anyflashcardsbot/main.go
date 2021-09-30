@@ -120,10 +120,11 @@ func main() {
 	if err := updateDefaultLibrary(defaultLibraryDirPath); err != nil {
 		log.Panic(err)
 	}
-	if defaultDictionaryId, err = setDefaultDictionaryInBase(defaultDictionaryName); err != nil {
-		log.Panic(err)
-	}
-
+	/*
+		if defaultDictionaryId, err = setDefaultDictionaryInBase(defaultDictionaryName); err != nil {
+			log.Panic(err)
+		}
+	*/
 	// Fill users map for security checking
 	if membership, err = loadAllUsersStatusFromBase(); err != nil {
 		log.Panic(err)
@@ -185,7 +186,8 @@ func main() {
 					if err = organizePrivateUserDictionariesInBase(update.Message.From.ID); err != nil {
 						log.Printf("err: %v\n", err)
 					}
-					if err = setDictionaryStatusInBase(_id, "current"); err != nil {
+					var meta = DictionaryMetadata{OwnerID: update.Message.From.ID, Status: "current"}
+					if err = setDictionaryMetaInBase(_id, meta); err != nil {
 						log.Printf("err: %v\n", err)
 					}
 				}
@@ -262,7 +264,8 @@ func main() {
 				dictionaryId, _ := primitive.ObjectIDFromHex(callback)
 				organizePrivateUserDictionariesInBase(update.CallbackQuery.From.ID)
 				resultDictionaryId, _ := copyDictionaryInBase(&dictionaryId)
-				setDictionaryStatusInBase(resultDictionaryId, "current")
+				var meta = DictionaryMetadata{FilePath: callback, OwnerID: update.CallbackQuery.From.ID, Status: "current"}
+				setDictionaryMetaInBase(resultDictionaryId, meta)
 
 			}
 
@@ -344,7 +347,6 @@ func showPickDictKeyboard(bot *tgbotapi.BotAPI, userId int) error {
 	pickDictKeyboard := tgbotapi.NewInlineKeyboardMarkup()
 
 	for _, dictionary := range dictionaries {
-		log.Printf("dictionary.ID.String(): %v\n", dictionary.ID.String())
 		var row []tgbotapi.InlineKeyboardButton
 		btn := tgbotapi.NewInlineKeyboardButtonData(dictionary.DictionaryMetadata.Name, dictionary.ID.Hex())
 		row = append(row, btn)

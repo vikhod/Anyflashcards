@@ -356,6 +356,10 @@ func updateDefaultLibrary(defaultLibraryDirPath string) error {
 		}
 
 		dictionary.DictionaryMetadata.Status = "library"
+		if dictionary.DictionaryMetadata.Name == defaultDictionaryName {
+			dictionary.DictionaryMetadata.Status = "default"
+		}
+
 		dumpDictionaryToBase(&dictionary)
 	}
 
@@ -438,33 +442,37 @@ func copyDictionaryInBase(sourceId *primitive.ObjectID) (*primitive.ObjectID, er
 	return resultId, nil
 }
 
-func setDictionaryStatusInBase(dictionaryId *primitive.ObjectID, status string) error {
+func setDictionaryMetaInBase(dictionaryId *primitive.ObjectID, metadata DictionaryMetadata) (err error) {
 
-	result, err := libraryCollection.UpdateOne(
-		context.TODO(),
-		bson.M{"_id": dictionaryId},
-		bson.M{"$set": bson.M{"dictionaryMetadata.status": status}},
-	)
-	log.Printf("dictionaryId: %v\n", dictionaryId)
-	log.Printf("result: %v\n", result)
+	if metadata.Name != "" {
+		_, err = libraryCollection.UpdateOne(context.TODO(), bson.M{"_id": dictionaryId},
+			bson.M{"$set": bson.M{"dictionaryMetadata.status": metadata.Status}},
+		)
+	}
+	if metadata.Date != "" {
+		_, err = libraryCollection.UpdateOne(context.TODO(), bson.M{"_id": dictionaryId},
+			bson.M{"$set": bson.M{"dictionaryMetadata.date": metadata.Date}},
+		)
+	}
+	if metadata.FilePath != "" {
+		_, err = libraryCollection.UpdateOne(context.TODO(), bson.M{"_id": dictionaryId},
+			bson.M{"$set": bson.M{"dictionaryMetadata.filePath": metadata.FilePath}},
+		)
+	}
+	if metadata.OwnerID != 0 {
+		_, err = libraryCollection.UpdateOne(context.TODO(), bson.M{"_id": dictionaryId},
+			bson.M{"$set": bson.M{"dictionaryMetadata.ownerId": metadata.OwnerID}},
+		)
+	}
+	if metadata.Status != "" {
+		_, err = libraryCollection.UpdateOne(context.TODO(), bson.M{"_id": dictionaryId},
+			bson.M{"$set": bson.M{"dictionaryMetadata.status": metadata.Status}},
+		)
+	}
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func setDefaultDictionaryInBase(name string) (_id primitive.ObjectID, err error) {
-
-	var dictionary Dictionary
-	err = libraryCollection.FindOneAndUpdate(
-		context.TODO(),
-		bson.M{"dictionaryMetadata.name": name, "dictionaryMetadata.status": "library"},
-		bson.M{"$set": bson.M{"dictionaryMetadata.status": "default"}},
-	).Decode(&dictionary)
-	if err != nil {
-		return _id, err
-	}
-	return dictionary.ID, nil
 }
 
 func organizePrivateUserDictionariesInBase(userId int) (err error) {
@@ -480,6 +488,21 @@ func organizePrivateUserDictionariesInBase(userId int) (err error) {
 	return nil
 }
 
+/*
+func setDefaultDictionaryInBase(name string) (_id primitive.ObjectID, err error) {
+
+	var dictionary Dictionary
+	err = libraryCollection.FindOneAndUpdate(
+		context.TODO(),
+		bson.M{"dictionaryMetadata.name": name, "dictionaryMetadata.status": "library"},
+		bson.M{"$set": bson.M{"dictionaryMetadata.status": "default"}},
+	).Decode(&dictionary)
+	if err != nil {
+		return _id, err
+	}
+	return dictionary.ID, nil
+}
+*/
 /*
 Functions list:
 
@@ -506,7 +529,8 @@ convertToFactSet
 Done:
 * TODO Add returning id into setDefDictInBase and dell getDefDict
 
+In work:
+
 In plan:
-*
-*
+
 */
