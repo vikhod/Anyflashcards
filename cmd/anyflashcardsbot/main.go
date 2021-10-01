@@ -4,7 +4,6 @@ import (
 	"log"
 	"math/rand"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/burke/nanomemo/supermemo"
@@ -55,7 +54,7 @@ var settingsKeyboard = tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardButtonData("Set reminder time", "setRemTime"),
 	),
 	tgbotapi.NewInlineKeyboardRow(
-		tgbotapi.NewInlineKeyboardButtonData("<< Back", "back"),
+		tgbotapi.NewInlineKeyboardButtonData("<< Back", "backToMain"),
 	),
 )
 
@@ -148,7 +147,18 @@ func main() {
 			if update.Message.NewChatMembers != nil {
 				log.Printf("\"update.Message.NewChatMembers != nil\": %v\n", "update.Message.NewChatMembers != nil")
 				addNewUsers(bot, update.Message.NewChatMembers)
-				copyDictionaryInBase(&defaultDictionaryId)
+				destinationId, err := copyDictionaryInBase(&defaultDictionaryId)
+				var meta = DictionaryMetadata{
+					Date:    time.Now(),
+					OwnerID: update.Message.From.ID,
+					Status:  "current"}
+
+				if err != nil {
+					log.Printf("err: %v\n", err)
+				}
+				if err := setDictionaryMetaInBase(destinationId, meta); err != nil {
+					log.Printf("err: %v\n", err)
+				}
 			}
 			if update.Message.LeftChatMember != nil {
 				blockUser(bot, update.Message.LeftChatMember.ID)
@@ -222,15 +232,22 @@ func main() {
 			}
 
 			if callback == "correctAnswer" {
-				nextQuestion(bot, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
-				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Right!")
+				forReview := libraryForReview[update.CallbackQuery.From.ID]
+				index := indexForReview[update.CallbackQuery.From.ID] - 1
+				msg := "Right!: " + forReview[index].Question + " - " + forReview[index].Answer
+				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, msg)
 				bot.AnswerCallbackQuery(calbackAnswer)
+				nextQuestion(bot, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
+
 			}
 
 			if callback == "incorrectAnswer" {
-				nextQuestion(bot, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
-				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, "Wrong!")
+				forReview := libraryForReview[update.CallbackQuery.From.ID]
+				index := indexForReview[update.CallbackQuery.From.ID] - 1
+				msg := "Wrong!: " + forReview[index].Question + " - " + forReview[index].Answer
+				calbackAnswer := tgbotapi.NewCallbackWithAlert(update.CallbackQuery.ID, msg)
 				bot.AnswerCallbackQuery(calbackAnswer)
+				nextQuestion(bot, update.CallbackQuery.From.ID, update.CallbackQuery.Data)
 			}
 
 			// Newbie check (maybe add later)
@@ -246,17 +263,17 @@ func main() {
 
 			if primitive.IsValidObjectID(callback) {
 				dictionaryId, _ := primitive.ObjectIDFromHex(callback)
-				organizePrivateUserDictionariesInBase(update.CallbackQuery.From.ID)
 				resultDictionaryId, _ := copyDictionaryInBase(&dictionaryId)
+				organizePrivateUserDictionariesInBase(update.CallbackQuery.From.ID)
 
 				var meta = DictionaryMetadata{
-					Name:     strconv.Itoa(update.UpdateID) + "_" + update.Message.Document.FileName,
 					Date:     time.Now(),
 					FilePath: callback,
 					OwnerID:  update.CallbackQuery.From.ID,
 					Status:   "current"}
 
 				setDictionaryMetaInBase(resultDictionaryId, meta)
+				showPickDictKeyboard(bot, update.CallbackQuery.From.ID)
 
 			}
 
@@ -270,13 +287,21 @@ func main() {
 				waitingForTime = true
 			}
 
-			if callback == "back" {
+			if callback == "backToMain" {
 				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, help)
 				kbrd := tgbotapi.NewEditMessageReplyMarkup(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, mainMenuKeyboard)
 				bot.Send(msg)
 				bot.Send(kbrd)
 
 			}
+			if callback == "backToSettings" {
+				msg := tgbotapi.NewEditMessageText(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, "What do you want to set?")
+				kbrd := tgbotapi.NewEditMessageReplyMarkup(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Message.MessageID, settingsKeyboard)
+				bot.Send(msg)
+				bot.Send(kbrd)
+
+			}
+
 		}
 	}
 }
@@ -329,21 +354,32 @@ func showSettings(bot *tgbotapi.BotAPI, update tgbotapi.Update) error {
 
 func showPickDictKeyboard(bot *tgbotapi.BotAPI, userId int) error {
 
-	dictionaries, err := loadAllPublicDictionaryFromBase()
+	publicDictionaries, err := loadAllPublicDictionaryFromBase()
 	if err != nil {
 		return err
 	}
+	privateUserDictionaries, err := loadAllUsersDictionariesFromBase(userId)
+	if err != nil {
+		return err
+	}
+	availableDictionaries := append(publicDictionaries, privateUserDictionaries...)
 
 	msg := tgbotapi.NewMessage(int64(userId), "Pick your dictionary:")
 	pickDictKeyboard := tgbotapi.NewInlineKeyboardMarkup()
 
-	for _, dictionary := range dictionaries {
+	for _, dictionary := range availableDictionaries {
 		var row []tgbotapi.InlineKeyboardButton
-		btn := tgbotapi.NewInlineKeyboardButtonData(dictionary.DictionaryMetadata.Name, dictionary.ID.Hex())
+		btnText := "Name: " + dictionary.DictionaryMetadata.Name +
+			"\nStatus:" + dictionary.DictionaryMetadata.Status +
+			"\nDate:" + dictionary.DictionaryMetadata.Date.Local().Format("2006-January-02 15:04:05")
+		btn := tgbotapi.NewInlineKeyboardButtonData(btnText, dictionary.ID.Hex())
 		row = append(row, btn)
 		pickDictKeyboard.InlineKeyboard = append(pickDictKeyboard.InlineKeyboard, row)
 	}
-
+	backBtn := tgbotapi.NewInlineKeyboardButtonData("<< Back", "backToSettings")
+	var row []tgbotapi.InlineKeyboardButton
+	row = append(row, backBtn)
+	pickDictKeyboard.InlineKeyboard = append(pickDictKeyboard.InlineKeyboard, row)
 	msg.ReplyMarkup = pickDictKeyboard
 
 	if _, err = bot.Send(msg); err != nil {
@@ -541,13 +577,18 @@ Done:
 * TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
 * TODO Rewrite security function
 * TODO Add taking id for each dump function
+* TODO Add returning id into setDefDictInBase and dell getDefDict
+* TODO Add to organize function deleting user dicts if more than three
 * TODO Add function chouse dictionary - need to be repaired
+* TODO Add showing available dictionaries for user (and public and his private)
+* TODO Add correct answer into each callback message
 
 In work:
-* TODO Add showing available dictionaries for user (and public and his private)
+* TODO Create helm chart and run it somewere
 
 In plan:
-* TODO Add correct answer into each callback message
+* TODO Add function for download dictionary
+* TODO Add posibiliti for pickDictionary pick private dict without copying
 * TODO Add exeptions into time handler
 * TODO Unite all map in one map or struct
 * TODO Add stop key into Quiz
@@ -555,4 +596,5 @@ In plan:
 * TODO Add function for chouse location
 * TODO Rewrite all messages wih html
 * TODO Add functionalyty for send message to creator in error situation
+* TODO Move it up, all hardcoded strings
 */

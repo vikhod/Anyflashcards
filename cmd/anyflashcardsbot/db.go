@@ -305,7 +305,7 @@ func updateFactsInBase(userId int, factSet *FactSet) error {
 
 		_, err := libraryCollection.UpdateOne(
 			context.TODO(),
-			bson.M{"dictionaryMetadata.ownerId": userId, "factSet.question": fact.Question},
+			bson.M{"dictionaryMetadata.ownerId": userId, "dictionaryMetadata.status": "current", "factSet.question": fact.Question},
 			bson.M{"$set": bson.M{"factSet.$.factmetadata": fact.FactMetadata}},
 		)
 		if err != nil {
@@ -323,7 +323,7 @@ func loadFactsFromBase(user *tgbotapi.User) (FactSet, error) {
 	var err error
 	if err = libraryCollection.FindOne(
 		context.TODO(),
-		bson.M{"dictionaryMetadata.ownerId": user.ID}).Decode(&dictionary); err != nil {
+		bson.M{"dictionaryMetadata.ownerId": user.ID, "dictionaryMetadata.status": "current"}).Decode(&dictionary); err != nil {
 
 		log.Panic(err)
 		return nil, err
@@ -444,7 +444,7 @@ func dumpDictionaryToBase(dictionary *Dictionary) (*primitive.ObjectID, error) {
 	return &dictionary.ID, nil
 }
 
-func copyDictionaryInBase(sourceId *primitive.ObjectID) (*primitive.ObjectID, error) {
+func copyDictionaryInBase(sourceId *primitive.ObjectID) (destinationId *primitive.ObjectID, err error) {
 
 	dictionary, err := loadDictionaryFromBase(sourceId)
 	if err != nil {
@@ -452,14 +452,15 @@ func copyDictionaryInBase(sourceId *primitive.ObjectID) (*primitive.ObjectID, er
 	}
 
 	//dictionary.DictionaryMetadata.Status = "current"
+	//dictionary.DictionaryMetadata.Name = ""
 	dictionary.DictionaryMetadata.FilePath = dictionary.ID.Hex()
 
-	resultId, err := dumpDictionaryToBase(&dictionary)
+	destinationId, err = dumpDictionaryToBase(&dictionary)
 	if err != nil {
 		return nil, err
 	}
 
-	return resultId, nil
+	return destinationId, nil
 }
 
 func setDictionaryMetaInBase(dictionaryId *primitive.ObjectID, metadata DictionaryMetadata) (err error) {
@@ -505,8 +506,10 @@ func organizePrivateUserDictionariesInBase(userId int) (err error) {
 	if err != nil {
 		return err
 	}
-
-	if int(result.MatchedCount) > 3 {
+	log.Printf("result.MatchedCount: %v\n", result.MatchedCount)
+	log.Printf("result.ModifiedCount: %v\n", result.ModifiedCount)
+	log.Printf("result.UpsertedCount: %v\n", result.UpsertedCount)
+	if result.MatchedCount > 3 || result.ModifiedCount > 3 || result.UpsertedCount > 3 {
 
 		oldestDictCursor, err := libraryCollection.Aggregate(
 			context.TODO(),
@@ -540,14 +543,3 @@ func organizePrivateUserDictionariesInBase(userId int) (err error) {
 
 	return nil
 }
-
-/*
-Done:
-* TODO Add returning id into setDefDictInBase and dell getDefDict
-* Add to organize function deleting user dicts if more than three
-
-In work:
-
-In plan:
-
-*/
