@@ -78,7 +78,7 @@ func readDictionaryFromDisc(csvPath string) (dictionary Dictionary, err error) {
 
 	dictionary.FactSet = factSet
 	dictionary.DictionaryMetadata.Name = file.Name()
-	dictionary.DictionaryMetadata.Date = file.ModTime().String()
+	dictionary.DictionaryMetadata.Date = file.ModTime()
 	dictionary.DictionaryMetadata.FilePath = csvPath
 
 	return dictionary, nil
@@ -231,7 +231,6 @@ func pushDictionaryToBase(bot *tgbotapi.BotAPI, update *tgbotapi.Update) (_id *p
 			}
 
 			dictionary.DictionaryMetadata.OwnerID = update.Message.From.ID
-			//dictionary.DictionaryMetadata.Status = "current"
 
 			_id, err = dumpDictionaryToBase(&dictionary)
 			if err != nil {

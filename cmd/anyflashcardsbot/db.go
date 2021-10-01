@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/burke/nanomemo/supermemo"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -225,8 +226,8 @@ type Dictionary struct {
 }
 
 type DictionaryMetadata struct {
-	Name string `bson:"name"`
-	Date string `bson:"date"`
+	Name string    `bson:"name"`
+	Date time.Time `bson:"date"`
 	// Where dictionary was loaded from
 	FilePath string `bson:"filePath"`
 	OwnerID  int    `bson:"ownerId"`
@@ -393,6 +394,25 @@ func loadAllPublicDictionaryFromBase() (dictionaries []Dictionary, err error) {
 	return dictionaries, nil
 }
 
+func loadAllUsersDictionariesFromBase(userId int) (dictionaries []Dictionary, err error) {
+
+	dictionaryCursor, err := libraryCollection.Find(context.TODO(), bson.M{"dictionaryMetadata.ownerId": userId})
+	if err != nil {
+		return nil, err
+	}
+
+	for dictionaryCursor.Next(context.TODO()) {
+		var dictionary Dictionary
+		if err = dictionaryCursor.Decode(&dictionary); err != nil {
+			return nil, err
+		}
+
+		dictionaries = append(dictionaries, dictionary)
+
+	}
+	return dictionaries, nil
+}
+
 func loadDictionaryFromBase(dictionaryId *primitive.ObjectID) (dictionary Dictionary, err error) {
 
 	dictionaryCursor, err := libraryCollection.Find(context.TODO(), bson.M{"_id": *dictionaryId})
@@ -449,7 +469,7 @@ func setDictionaryMetaInBase(dictionaryId *primitive.ObjectID, metadata Dictiona
 			bson.M{"$set": bson.M{"dictionaryMetadata.status": metadata.Status}},
 		)
 	}
-	if metadata.Date != "" {
+	if metadata.Date.IsZero() {
 		_, err = libraryCollection.UpdateOne(context.TODO(), bson.M{"_id": dictionaryId},
 			bson.M{"$set": bson.M{"dictionaryMetadata.date": metadata.Date}},
 		)
@@ -477,57 +497,54 @@ func setDictionaryMetaInBase(dictionaryId *primitive.ObjectID, metadata Dictiona
 
 func organizePrivateUserDictionariesInBase(userId int) (err error) {
 
-	if _, err = libraryCollection.UpdateMany(
+	result, err := libraryCollection.UpdateMany(
 		context.TODO(),
 		bson.M{"dictionaryMetadata.ownerId": userId},
 		bson.M{"$set": bson.M{"dictionaryMetadata.status": "private"}},
-	); err != nil {
+	)
+	if err != nil {
 		return err
+	}
+
+	if int(result.MatchedCount) > 3 {
+
+		oldestDictCursor, err := libraryCollection.Aggregate(
+			context.TODO(),
+			[]interface{}{
+				bson.M{"$match": bson.M{"dictionaryMetadata.ownerId": userId}},
+				bson.M{"$group": bson.M{
+					"_id":  "$dictionaryMetadata.ownerId",
+					"date": bson.M{"$min": "$dictionaryMetadata.date"}}}},
+		)
+		if err != nil {
+			log.Printf("err: %v\n", err)
+		}
+
+		type oldestDict struct {
+			Id   int       `bson:"_id"`
+			Date time.Time `bson:"date"`
+		}
+		var oldDict oldestDict
+		for oldestDictCursor.Next(context.TODO()) {
+			oldestDictCursor.Decode(&oldDict)
+
+			_, err = libraryCollection.DeleteOne(
+				context.TODO(),
+				bson.M{"dictionaryMetadata.ownerId": oldDict.Id, "dictionaryMetadata.date": oldDict.Date},
+			)
+			if err != nil {
+				log.Printf("err: %v\n", err)
+			}
+		}
 	}
 
 	return nil
 }
 
 /*
-func setDefaultDictionaryInBase(name string) (_id primitive.ObjectID, err error) {
-
-	var dictionary Dictionary
-	err = libraryCollection.FindOneAndUpdate(
-		context.TODO(),
-		bson.M{"dictionaryMetadata.name": name, "dictionaryMetadata.status": "library"},
-		bson.M{"$set": bson.M{"dictionaryMetadata.status": "default"}},
-	).Decode(&dictionary)
-	if err != nil {
-		return _id, err
-	}
-	return dictionary.ID, nil
-}
-*/
-/*
-Functions list:
-
-connectMongoDb - OK
-
-loadAllUsersStatusFromBase - OK
-loadAllRemindsFromBase     - OK
-dumpReminderToBase - OK
-
-addNewUsers
-addNewUser
-deleteUser
-
-updateDefaultLibrary
-updateFactsInBase
-loadFactsFromBase
-dumpDictionaryToBase
-
-convertToSupermemoFactSet
-convertToFactSet
-*/
-
-/*
 Done:
 * TODO Add returning id into setDefDictInBase and dell getDefDict
+* Add to organize function deleting user dicts if more than three
 
 In work:
 

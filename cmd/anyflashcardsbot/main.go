@@ -4,6 +4,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/burke/nanomemo/supermemo"
@@ -120,11 +121,7 @@ func main() {
 	if err := updateDefaultLibrary(defaultLibraryDirPath); err != nil {
 		log.Panic(err)
 	}
-	/*
-		if defaultDictionaryId, err = setDefaultDictionaryInBase(defaultDictionaryName); err != nil {
-			log.Panic(err)
-		}
-	*/
+
 	// Fill users map for security checking
 	if membership, err = loadAllUsersStatusFromBase(); err != nil {
 		log.Panic(err)
@@ -182,11 +179,10 @@ func main() {
 				if _id, err := pushDictionaryToBase(bot, &update); err != nil {
 					log.Printf("err: %v\n", err)
 				} else {
-					log.Printf("_id: %v\n", _id)
 					if err = organizePrivateUserDictionariesInBase(update.Message.From.ID); err != nil {
 						log.Printf("err: %v\n", err)
 					}
-					var meta = DictionaryMetadata{OwnerID: update.Message.From.ID, Status: "current"}
+					var meta = DictionaryMetadata{Date: time.Now(), OwnerID: update.Message.From.ID, Status: "current"}
 					if err = setDictionaryMetaInBase(_id, meta); err != nil {
 						log.Printf("err: %v\n", err)
 					}
@@ -248,23 +244,18 @@ func main() {
 				//waitingForDictionaryID = true
 			}
 
-			log.Printf("callback: %v\n", callback)
-
-			//log.Printf("_id: %v\n", _id)
-			//log.Printf("err: %v\n", err)
-			/*
-				if ok, _ := stringIsDictionary(callback); ok {
-					log.Printf("\"string is dictionary\": %v\n", "string is dictionary")
-					copyDictionaryInBase(callback)
-					//deletePersonalDictionaryFromBase(update.CallbackQuery.From.ID)
-				}
-			*/
 			if primitive.IsValidObjectID(callback) {
-				log.Printf("primitive.IsValidObjectID(callback): %v\n", primitive.IsValidObjectID(callback))
 				dictionaryId, _ := primitive.ObjectIDFromHex(callback)
 				organizePrivateUserDictionariesInBase(update.CallbackQuery.From.ID)
 				resultDictionaryId, _ := copyDictionaryInBase(&dictionaryId)
-				var meta = DictionaryMetadata{FilePath: callback, OwnerID: update.CallbackQuery.From.ID, Status: "current"}
+
+				var meta = DictionaryMetadata{
+					Name:     strconv.Itoa(update.UpdateID) + "_" + update.Message.Document.FileName,
+					Date:     time.Now(),
+					FilePath: callback,
+					OwnerID:  update.CallbackQuery.From.ID,
+					Status:   "current"}
+
 				setDictionaryMetaInBase(resultDictionaryId, meta)
 
 			}
@@ -550,9 +541,10 @@ Done:
 * TODO Cut out function getUpdateInitiator, maybe mix functionality with checkMembership - Done. Check with other users.
 * TODO Rewrite security function
 * TODO Add taking id for each dump function
+* TODO Add function chouse dictionary - need to be repaired
 
 In work:
-* ! TODO Add function chouse dictionary - need to be repaired
+* TODO Add showing available dictionaries for user (and public and his private)
 
 In plan:
 * TODO Add correct answer into each callback message
