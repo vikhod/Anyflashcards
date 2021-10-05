@@ -584,6 +584,7 @@ Done:
 * TODO Add correct answer into each callback message
 
 In work:
+* TODO Create infrastracture with terraform
 * TODO Create helm chart and run it somewere
 
 In plan:
