@@ -69,8 +69,8 @@ resource "openstack_networking_secgroup_rule_v2" "allow_http" {
   direction         = "ingress"
   ethertype         = "IPv4"
   protocol          = "tcp"
-  port_range_min    = 8080
-  port_range_max    = 8080
+  port_range_min    = 1
+  port_range_max    = 65535
   remote_ip_prefix  = "0.0.0.0/0"
   security_group_id = "${openstack_compute_secgroup_v2.anyflashcards_secgroup.id}"
 }
@@ -125,6 +125,7 @@ resource "openstack_compute_volume_attach_v2" "attached" {
 
 resource "null_resource" "ansibled" {
   depends_on = [
+    openstack_compute_instance_v2.vh-af-minikube,
     openstack_compute_floatingip_associate_v2.connected,
     openstack_compute_volume_attach_v2.attached
   ]

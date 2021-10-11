@@ -1,5 +1,5 @@
 [minikube] 
-172.16.248.248
+172.16.244.199
 
 [minikube:vars]
 ansible_ssh_user=ubuntu

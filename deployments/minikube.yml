@@ -46,39 +46,71 @@
       debug:
         msg: " {{ ver_doc.stdout_lines[1] }} "
 
-    - name: Curl last stable Kubectl version
-      command: curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
-      register: curl_kubectl_version
-
-    - name: Get Kubectl binar file
+    - name: Get K3s installation script
       get_url:
-        url: https://dl.k8s.io/release/{{ curl_kubectl_version.stdout }}//bin/linux/amd64/kubectl
-        dest: /usr/local/bin/
+        url: https://get.k3s.io
+        dest: .
         mode: '0755'
+        register: get_script
 
-    - name: Get Minikube binar file
-      get_url:
-        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-        dest: /usr/local/bin/minikube
-        mode: '0755'
-
-    - name: Start minikube
-      become: false
-      command: minikube start --driver=docker
-      register: minikube_start_stdout
-    
-    - name: Minikube dashboard
-      become: false
-      command: minikube dashboard --port=8080
-      register: minikube_start_stdout
+    - name: Curl and install K3s with docker
+      command: {{ get_script.stdout }} sh -s - --docker --write-kubeconfig-mode
       tags:
         - now
     
-    - name: Print verifying result
-      debug:
-        msg: " {{ minikube_start_stdout.stdout }} "
+    - name: Copy K3s dashboard file 1
+      copy:
+        src: dashboard.admin-user.yml
+        dest: dashboard.admin-user.yml
       tags:
         - now
+
+    - name: Copy K3s dashboard file 2
+      copy:
+        src: dashboard.admin-user-role.yml
+        dest: dashboard.admin-user-role.yml
+      tags:
+        - now
+      
+    - name: Curl and install K3s with docker
+      command: sudo k3s kubectl create -f dashboard.admin-user.yml -f dashboard.admin-user-role.yml
+      environment:
+        GITHUB_URL: 'https://github.com/kubernetes/dashboard/releases'
+        VERSION_KUBE_DASHBOARD: "VERSION_KUBE_DASHBOARD=$(curl -w '%{url_effective}' -I -L -s -S ${GITHUB_URL}/latest -o /dev/null | sed -e 's|.*/||')
+sudo k3s kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/${VERSION_KUBE_DASHBOARD}/aio/deploy/recommended.yaml"
+      tags:
+        - now
+
+
+#    - name: Get Kubectl binar file
+#      get_url:
+#       url: https://dl.k8s.io/release/{{ curl_kubectl_version.stdout }}//bin/linux/amd64/kubectl
+#       dest: /usr/local/bin/
+#        mode: '0755'
+
+#    - name: Get Minikube binar file
+#      get_url:
+#        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+#        dest: /usr/local/bin/minikube
+#       mode: '0755'
+
+#    - name: Start minikube
+#      become: false
+#      command: minikube start --driver=docker
+#      register: minikube_start_stdout
+    
+#    - name: Minikube dashboard
+#      become: false
+#      command: minikube dashboard --port=8080
+#      register: minikube_start_stdout
+#      tags:
+#        - now
+    
+#    - name: Print verifying result
+#      debug:
+#        msg: " {{ minikube_start_stdout.stdout }} "
+#      tags:
+#        - now
 
 
 
