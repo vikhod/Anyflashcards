@@ -14,26 +14,22 @@ terraform {
 provider "openstack" {
 }
 
-# Network configuration
-
+### Network configuration ###
 data "openstack_networking_network_v2" "public" {
   name = "public"
 }
 
-# Create router for connection public and anyflashcards_private networks
 resource "openstack_networking_router_v2" "anyflashcards_router" {
   name                = "anyflashcards_router"
   admin_state_up      = true
   external_network_id = "${data.openstack_networking_network_v2.public.id}"
 }
 
-# Create anyflashcards private network
 resource "openstack_networking_network_v2" "anyflashcards_network" {
   name           = "anyflashcards_network"
-  admin_state_up = "true"
+  admin_state_up = true
 }
 
-# Create anyflashcards private sub netwok
 resource "openstack_networking_subnet_v2" "anyflashcards_subnet_1" {
   name       = "anyflashcards_subnet_1"
   network_id = "${openstack_networking_network_v2.anyflashcards_network.id}"
@@ -41,22 +37,48 @@ resource "openstack_networking_subnet_v2" "anyflashcards_subnet_1" {
   ip_version = 4
 }
 
-# Connect public and anyflashcards_private networks
 resource "openstack_networking_router_interface_v2" "router_interface_1" {
   router_id = "${openstack_networking_router_v2.anyflashcards_router.id}"
   subnet_id = "${openstack_networking_subnet_v2.anyflashcards_subnet_1.id}"
 }
 
-# Create anyflashcards security group
 resource "openstack_compute_secgroup_v2" "anyflashcards_secgroup" {
   name        = "anyflashcards_secgroup"
   description = "Security group for anyflashcards minikube server"
 }
-# Create port in anyflashcards network for anyflashcards minikube server
+
+resource "openstack_networking_secgroup_rule_v2" "allow_icmp" {
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "icmp"
+  remote_ip_prefix  = "0.0.0.0/0"
+  security_group_id = "${openstack_compute_secgroup_v2.anyflashcards_secgroup.id}"
+}
+
+resource "openstack_networking_secgroup_rule_v2" "allow_ssh" {
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 22
+  port_range_max    = 22
+  remote_ip_prefix  = "0.0.0.0/0"
+  security_group_id = "${openstack_compute_secgroup_v2.anyflashcards_secgroup.id}"
+}
+
+resource "openstack_networking_secgroup_rule_v2" "allow_http" {
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 8080
+  port_range_max    = 8080
+  remote_ip_prefix  = "0.0.0.0/0"
+  security_group_id = "${openstack_compute_secgroup_v2.anyflashcards_secgroup.id}"
+}
+
 resource "openstack_networking_port_v2" "anyflascards_network_port" {
   name               = "anyflascards_network_port"
   network_id         = "${openstack_networking_network_v2.anyflashcards_network.id}"
-  admin_state_up     = "true"
+  admin_state_up     = true
   security_group_ids = ["${openstack_compute_secgroup_v2.anyflashcards_secgroup.id}"]
 
   fixed_ip {
@@ -65,37 +87,65 @@ resource "openstack_networking_port_v2" "anyflascards_network_port" {
   }
 }
 
-# Create keypair for minikube server
+resource "openstack_networking_floatingip_v2" "anyflashcards_extip" {
+  pool = "public"
+}
+
+### Minikube server configuration
 resource "openstack_compute_keypair_v2" "anyflashcards-keypair" {
   name       = "anyflashcards-keypair"
   public_key = file("anyflashcards_rsa.pub")
 }
 
-# Create volume for minikube server
 resource "openstack_blockstorage_volume_v2" "anyflashcards_volume" {
   name = "anyflashcards_volume"
   size = 20
 }
 
-# Create minikube server instance
-resource "openstack_compute_instance_v2" "anyflashcards-minikube" {
-  name            = "anyflashcards-minikube"
-  image_name      = "test-bionic-server-cloudimg-amd64-20210426"
+resource "openstack_compute_instance_v2" "vh-af-minikube" {
+  name            = "vh-af-minikube"
+  image_name      = "focal-server-cloudimg-amd64-20211006"
   flavor_name     = "kaas.small"
   key_pair = "anyflashcards-keypair"
-  config_drive    = true
-  user_data       = file("cloud_init.yaml")
+ 
   network {
     port = "${openstack_networking_port_v2.anyflascards_network_port.id}"
   }
 }
 
-# Attach volube to minikube server
+resource "openstack_compute_floatingip_associate_v2" "connected" {
+  floating_ip = "${openstack_networking_floatingip_v2.anyflashcards_extip.address}"
+  instance_id = "${openstack_compute_instance_v2.vh-af-minikube.id}"
+}
+
 resource "openstack_compute_volume_attach_v2" "attached" {
-  instance_id = "${openstack_compute_instance_v2.anyflashcards-minikube.id}"
+  instance_id = "${openstack_compute_instance_v2.vh-af-minikube.id}"
   volume_id   = "${openstack_blockstorage_volume_v2.anyflashcards_volume.id}"
 }
 
-# TODO Add resource imege
-# TODO Add resource flavor
+resource "null_resource" "ansibled" {
+  depends_on = [
+    openstack_compute_floatingip_associate_v2.connected,
+    openstack_compute_volume_attach_v2.attached
+  ]
+
+  provisioner "local-exec" {
+    command = <<EOD
+cat <<EOF > anyflashcards_hosts 
+[minikube] 
+${openstack_networking_floatingip_v2.anyflashcards_extip.address}
+
+[minikube:vars]
+ansible_ssh_user=ubuntu
+ansible_ssh_private_key_file=anyflashcards_rsa
+EOF
+EOD
+  }
+
+  provisioner "local-exec" {
+    command = "ansible-playbook -i anyflashcards_hosts minikube.yml"
+  }
+  
+}
+
 # TODO Move frome using of cloud_init to Ansible playbook

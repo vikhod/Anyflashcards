@@ -1,0 +1,87 @@
+---
+  - hosts: minikube
+    become: true
+    tasks:
+    - name: Install aptitude using apt
+      apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+
+    - name: Install required system packages
+      apt: name={{ item }} state=latest update_cache=yes
+      loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'gnupg', 'lsb-release', 'wget' ]
+
+    - name: Add Docker GPG apt Key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Update apt and install docker-ce
+      apt: update_cache=yes name={{ item }} state=latest
+      loop: [ 'docker-ce', 'docker-ce-cli', 'containerd.io' ]
+    
+    - name: Add docker group
+      group:
+        name: docker
+        state: present
+
+    - name: Add user ubuntu to the docker group
+      user:
+        name: ubuntu
+        append: yes
+        groups: docker
+    
+    - name: Reset ssh connection to allow user changes to affect ansible user
+      meta:
+        reset_connection
+
+    - name: Verify docker
+      command: docker run hello-world
+      register: ver_doc
+
+    - name: Print verifying result
+      debug:
+        msg: " {{ ver_doc.stdout_lines[1] }} "
+
+    - name: Curl last stable Kubectl version
+      command: curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
+      register: curl_kubectl_version
+
+    - name: Get Kubectl binar file
+      get_url:
+        url: https://dl.k8s.io/release/{{ curl_kubectl_version.stdout }}//bin/linux/amd64/kubectl
+        dest: /usr/local/bin/
+        mode: '0755'
+
+    - name: Get Minikube binar file
+      get_url:
+        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        dest: /usr/local/bin/minikube
+        mode: '0755'
+
+    - name: Start minikube
+      become: false
+      command: minikube start --driver=docker
+      register: minikube_start_stdout
+    
+    - name: Minikube dashboard
+      become: false
+      command: minikube dashboard --port=8080
+      register: minikube_start_stdout
+      tags:
+        - now
+    
+    - name: Print verifying result
+      debug:
+        msg: " {{ minikube_start_stdout.stdout }} "
+      tags:
+        - now
+
+
+
+
+
+

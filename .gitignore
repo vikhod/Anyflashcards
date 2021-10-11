@@ -33,4 +33,4 @@ vocabulary_owsi.csv
 *.hcl
 *.tfstate
 *.tfstate.backup
-*.terraform
+*.terraform*
