@@ -49,12 +49,12 @@
     - name: Get K3s installation script
       get_url:
         url: https://get.k3s.io
-        dest: .
+        dest: $HOME/k3s_inst_script.sh
         mode: '0755'
-        register: get_script
 
-    - name: Curl and install K3s with docker
-      command: {{ get_script.stdout }} sh -s - --docker --write-kubeconfig-mode
+    - name: Install K3s with docker
+      become: true
+      command: bash $HOME/k3s_inst_script.sh --docker --write-kubeconfig-mode
       tags:
         - now
     
