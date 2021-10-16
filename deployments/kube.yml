@@ -1,8 +1,6 @@
 ---
   - hosts: kube
     become: true
-    collections:
-      - community.kubernetes.k8s
     tasks:
     - name: Install aptitude using apt
       apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
@@ -56,78 +54,80 @@
 
     - name: Install K3s with docker
       command: sh /etc/k3s_inst_script.sh --docker --write-kubeconfig-mode 644
-
-    - name: Deploy the Kubernetes dashboard
-      ignore_errors: yes
-      shell:
-        cmd: |
-          GITHUB_URL=https://github.com/kubernetes/dashboard/releases
-          VERSION_KUBE_DASHBOARD=$(curl -w '%{url_effective}' -I -L -s -S ${GITHUB_URL}/latest -o /dev/null | sed -e 's|.*/||')
-          k3s kubectl create -f https://raw.githubusercontent.com/kubernetes/dashboard/${VERSION_KUBE_DASHBOARD}/aio/deploy/recommended.yaml
-
-    - name: Copy K3s dashboard file 1
-      copy:
-        src: dashboard.admin-user.yml
-        dest: /etc/dashboard.admin-user.yml
-
-    - name: Copy K3s dashboard file 2
-      copy:
-        src: dashboard.admin-user-role.yml
-        dest: /etc/dashboard.admin-user-role.yml
-      
-    - name: Config Kubernetes dashboard
-      ignore_errors: yes
-      command: k3s kubectl create -f /etc/dashboard.admin-user.yml -f /etc/dashboard.admin-user-role.yml
-
-# sudo pip3 install openshift  
-    - name: Config dashboard service for external connection
-      become: false
-      k8s:
-        api_version: v1
-        kind: Service
-        state: present
-        name: kubernetes-dashboard
-        namespace: kubernetes-dashboard
-        definition:
-          spec:
-            type: NodePort
       tags:
         - now
-      
 
+    - name: Create directory .kube
+      file:
+        path: ~{{ ansible_ssh_user }}/.kube
+        state: directory
+        owner: "{{ ansible_ssh_user }}"
+        mode: "u=rwx,g=rx,o="
+      tags:
+        - now
 
-#    - name: Get Kubectl binar file
-#      get_url:
-#       url: https://dl.k8s.io/release/{{ curl_kubectl_version.stdout }}//bin/linux/amd64/kubectl
-#       dest: /usr/local/bin/
-#        mode: '0755'
+    - name: Copy config file to user home directory
+      copy:
+        src: /etc/rancher/k3s/k3s.yaml
+        dest: ~{{ ansible_ssh_user }}/.kube/config
+        remote_src: yes
+        owner: "{{ ansible_ssh_user }}"
+        mode: "u=rw,g=,o="
+      tags:
+        - now
 
-#    - name: Get Minikube binar file
-#      get_url:
-#        url: https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-#        dest: /usr/local/bin/minikube
-#       mode: '0755'
+    - name: Replace https://localhost:6443 by https://kube-ip:6443
+      command: >-
+        k3s kubectl config set-cluster default
+          --server=https://{{ kube_ip }}:6443
+          --kubeconfig ~{{ ansible_ssh_user }}/.kube/config
+      changed_when: true
+      tags:
+        - now
 
-#    - name: Start minikube
-#      become: false
-#      command: minikube start --driver=docker
-#      register: minikube_start_stdout
-    
-#    - name: Minikube dashboard
-#      become: false
-#      command: minikube dashboard --port=8080
-#      register: minikube_start_stdout
-#      tags:
-#        - now
-    
-#    - name: Print verifying result
-#      debug:
-#        msg: " {{ minikube_start_stdout.stdout }} "
-#      tags:
-#        - now
+        - name: Store kube config file localy
+      become: false
+      fetch:
+        src: ~/.kube/config
+        dest: .kube/config
+      tags:
+        - now
 
+    - name: Create kubectl symlink
+      file:
+        src: /usr/local/bin/k3s
+        dest: /usr/local/bin/kubectl
+        state: link
+      tags:
+        - now
 
-# TODO Move all credentials into eyaml
+    - name: Create crictl symlink
+      file:
+        src: /usr/local/bin/k3s
+        dest: /usr/local/bin/crictl
+        state: link
+      tags:
+        - now
+
+    - name: Enable IPv4 forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: "1"
+        state: present
+        reload: yes
+      tags:
+        - now
+
+    - name: Enable IPv6 forwarding
+      sysctl:
+        name: net.ipv6.conf.all.forwarding
+        value: "1"
+        state: present
+        reload: yes
+      tags:
+        - now
+
+# TODO Move all credentials into eyaml or Ansible vault
 
 
 

@@ -29,8 +29,3 @@ openrc.sh
 # Vocabularies
 vocabulary_owsi.csv
 
-# Terraform
-*.hcl
-*.tfstate
-*.tfstate.backup
-*.terraform*

@@ -1,0 +1,10 @@
+# Terraform
+*.hcl
+*.tfstate
+*.tfstate.backup
+*.terraform*
+
+# Credentials
+.kube
+*_hosts
+

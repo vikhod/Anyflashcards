@@ -139,14 +139,12 @@ ${openstack_networking_floatingip_v2.anyflashcards_extip.address}
 [kube:vars]
 ansible_ssh_user=ubuntu
 ansible_ssh_private_key_file=anyflashcards_rsa
+kube_ip=${openstack_networking_floatingip_v2.anyflashcards_extip.address}
 EOF
 EOD
   }
 
   provisioner "local-exec" {
-    command = "ansible-playbook -i anyflashcards_hosts kube.yml"
+    command = "ansible-playbook kube.yml -i anyflashcards_hosts"
   }
-  
 }
-
-# TODO Move frome using of cloud_init to Ansible playbook
