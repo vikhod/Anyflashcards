@@ -44,7 +44,7 @@ resource "openstack_networking_router_interface_v2" "router_interface_1" {
 
 resource "openstack_compute_secgroup_v2" "anyflashcards_secgroup" {
   name        = "anyflashcards_secgroup"
-  description = "Security group for anyflashcards minikube server"
+  description = "Security group for anyflashcards kube server"
 }
 
 resource "openstack_networking_secgroup_rule_v2" "allow_icmp" {
@@ -91,7 +91,7 @@ resource "openstack_networking_floatingip_v2" "anyflashcards_extip" {
   pool = "public"
 }
 
-### Minikube server configuration
+### kube server configuration
 resource "openstack_compute_keypair_v2" "anyflashcards-keypair" {
   name       = "anyflashcards-keypair"
   public_key = file("anyflashcards_rsa.pub")
@@ -102,8 +102,8 @@ resource "openstack_blockstorage_volume_v2" "anyflashcards_volume" {
   size = 20
 }
 
-resource "openstack_compute_instance_v2" "vh-af-minikube" {
-  name            = "vh-af-minikube"
+resource "openstack_compute_instance_v2" "vh-af-kube" {
+  name            = "vh-af-kube"
   image_name      = "focal-server-cloudimg-amd64-20211006"
   flavor_name     = "kaas.small"
   key_pair = "anyflashcards-keypair"
@@ -115,17 +115,17 @@ resource "openstack_compute_instance_v2" "vh-af-minikube" {
 
 resource "openstack_compute_floatingip_associate_v2" "connected" {
   floating_ip = "${openstack_networking_floatingip_v2.anyflashcards_extip.address}"
-  instance_id = "${openstack_compute_instance_v2.vh-af-minikube.id}"
+  instance_id = "${openstack_compute_instance_v2.vh-af-kube.id}"
 }
 
 resource "openstack_compute_volume_attach_v2" "attached" {
-  instance_id = "${openstack_compute_instance_v2.vh-af-minikube.id}"
+  instance_id = "${openstack_compute_instance_v2.vh-af-kube.id}"
   volume_id   = "${openstack_blockstorage_volume_v2.anyflashcards_volume.id}"
 }
 
 resource "null_resource" "ansibled" {
   depends_on = [
-    openstack_compute_instance_v2.vh-af-minikube,
+    openstack_compute_instance_v2.vh-af-kube,
     openstack_compute_floatingip_associate_v2.connected,
     openstack_compute_volume_attach_v2.attached
   ]
@@ -133,10 +133,10 @@ resource "null_resource" "ansibled" {
   provisioner "local-exec" {
     command = <<EOD
 cat <<EOF > anyflashcards_hosts 
-[minikube] 
+[kube] 
 ${openstack_networking_floatingip_v2.anyflashcards_extip.address}
 
-[minikube:vars]
+[kube:vars]
 ansible_ssh_user=ubuntu
 ansible_ssh_private_key_file=anyflashcards_rsa
 EOF
@@ -144,7 +144,7 @@ EOD
   }
 
   provisioner "local-exec" {
-    command = "ansible-playbook -i anyflashcards_hosts minikube.yml"
+    command = "ansible-playbook -i anyflashcards_hosts kube.yml"
   }
   
 }

@@ -1,6 +1,6 @@
-[minikube] 
-172.16.244.199
+[kube] 
+172.16.244.152
 
-[minikube:vars]
+[kube:vars]
 ansible_ssh_user=ubuntu
 ansible_ssh_private_key_file=anyflashcards_rsa
