@@ -25,6 +25,8 @@ secret.sh
 openrc.sh
 *rsa
 *rsa.pub
+internal/
+
 
 # Vocabularies
 vocabulary_owsi.csv
