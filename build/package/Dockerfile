@@ -11,14 +11,5 @@ COPY configs ./configs
 COPY cmd/anyflashcardsbot ./
 ##COPY ./cmd/go.sum ./
 
-# Execute command in image for downloading modules
-##RUN go mod download
-
-# Copy all *.go files
-##COPY ./cmd/*.go ./
-
 # Compile anyflashcardsbot in image
 RUN go build -o /anyflashcardsbot
-
-# Run anyflashcardsbot in image
-CMD [ "./anyflashcardsbot" ]
