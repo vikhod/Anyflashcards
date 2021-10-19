@@ -1,6 +1,8 @@
 ---
   - hosts: kube
     become: true
+    collections: 
+      - ansible_collections.community.general
     tasks:
     - name: Install aptitude using apt
       apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
@@ -50,21 +52,18 @@
       get_url:
         url: https://get.k3s.io
         dest: /etc/k3s_inst_script.sh
-        mode: '0755'
+        mode: '755'
 
     - name: Install K3s with docker
       command: sh /etc/k3s_inst_script.sh --docker --write-kubeconfig-mode 644
-      tags:
-        - now
 
     - name: Create directory .kube
       file:
         path: ~{{ ansible_ssh_user }}/.kube
         state: directory
         owner: "{{ ansible_ssh_user }}"
-        mode: "u=rwx,g=rx,o="
-      tags:
-        - now
+        group: "{{ ansible_ssh_user }}"
+        mode: '750'
 
     - name: Copy config file to user home directory
       copy:
@@ -73,8 +72,6 @@
         remote_src: yes
         owner: "{{ ansible_ssh_user }}"
         mode: "u=rw,g=,o="
-      tags:
-        - now
 
     - name: Replace https://localhost:6443 by https://kube-ip:6443
       command: >-
@@ -82,32 +79,24 @@
           --server=https://{{ kube_ip }}:6443
           --kubeconfig ~{{ ansible_ssh_user }}/.kube/config
       changed_when: true
-      tags:
-        - now
 
-        - name: Store kube config file localy
+    - name: Store kube config file localy
       become: false
       fetch:
         src: ~/.kube/config
         dest: .kube/config
-      tags:
-        - now
 
     - name: Create kubectl symlink
       file:
         src: /usr/local/bin/k3s
         dest: /usr/local/bin/kubectl
         state: link
-      tags:
-        - now
 
     - name: Create crictl symlink
       file:
         src: /usr/local/bin/k3s
         dest: /usr/local/bin/crictl
         state: link
-      tags:
-        - now
 
     - name: Enable IPv4 forwarding
       sysctl:
@@ -115,8 +104,6 @@
         value: "1"
         state: present
         reload: yes
-      tags:
-        - now
 
     - name: Enable IPv6 forwarding
       sysctl:
@@ -124,7 +111,40 @@
         value: "1"
         state: present
         reload: yes
-      tags:
+
+    - name: Create a new ext4 primary partition on /dev/vdc
+      community.general.parted:
+        device: /dev/vdc
+        number: 1
+        state: present
+      tags: 
+        - now
+    
+    - name: Make file system on /dev/vdc1
+      community.general.filesystem:
+        fstype: ext4
+        dev: /dev/vdc1
+        state: present
+      tags: 
+          - now
+
+    - name: Create directory for mounting volume
+      file:
+        path: ~{{ ansible_ssh_user }}/anyflashcards_volume
+        state: directory
+        owner: "{{ ansible_ssh_user }}"
+        group: "{{ ansible_ssh_user }}"
+        mode: '755'
+      tags: 
+        - now
+
+    - name: Mount /dev/vdc1 to /anyflashcards_volume
+      mount:
+        path: ~{{ ansible_ssh_user }}/anyflashcards_volume
+        src: /dev/vdc1
+        fstype: ext4
+        state: mounted
+      tags: 
         - now
 
 # TODO Move all credentials into eyaml or Ansible vault
