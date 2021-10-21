@@ -9,4 +9,4 @@ spec:
   accessModes:
     - ReadWriteOnce
   local:
-    path: /
+    path: /home/ubuntu/anyflashcards_volume
