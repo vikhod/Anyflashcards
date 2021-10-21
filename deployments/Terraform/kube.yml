@@ -148,18 +148,17 @@
       changed_when: true
 
     - name: Clone branch from Github
-      git:
+      ansible.builtin.git:
         repo: https://github.com/vikhod/Anyflashcards.git
-        dest: ~{{ ansible_ssh_user }}/
-        single_branch: yes
+        dest: ~{{ ansible_ssh_user }}/Anyflashcards
         version: main #could be version branch if it is production env
       tags: 
         - now
     
     - name: Copy .asc and .sops files
       copy: 
-        src: {{ item.src }} 
-        dest: {{ item.dest }}
+        src: '{{ item.src }}'
+        dest: '{{ item.dest }}'
         mode: '600'
       with_items:
         - { src: '../../af.asc', dest: '~{{ ansible_ssh_user }}/Anyflashcards' }
@@ -170,8 +169,7 @@
     - name: Import gpg key and decrypt secrets
       shell: |
         gpg --import ~{{ ansible_ssh_user }}/Anyflashcards/af.asc
-        sops -d --encrypted-regex '^(data)$' ~{{ ansible_ssh_user }}/Anyflashcards/deployments/k8s/mongo-secret.yml.enc > ~{{ ansible_ssh_user }}/Anyflashcards/deployments/k8s/mongo-secret.yml
-      changed_when: true
+        sops -d --config ~{{ ansible_ssh_user }}/Anyflashcards/.sops.yml ~{{ ansible_ssh_user }}/Anyflashcards/deployments/k8s/mongo-secret.enc.yml > /home/ubuntu/Anyflashcards/deployments/k8s/mongo-secret.yml
       tags: 
         - now
 
