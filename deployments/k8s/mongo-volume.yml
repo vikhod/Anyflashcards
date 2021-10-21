@@ -3,8 +3,9 @@ kind: PersistentVolumeClaim
 metadata:
   name: mongo-volume
 spec:
-  capacity:
-    storage: 10Gi
+  resources:
+    requests:
+      storage: 10Gi
   volumeMode: Filesystem
   accessModes:
     - ReadWriteOnce
