@@ -21,9 +21,9 @@ spec:
             - secretRef:
                 name: mongo-secret
           volumeMounts:
-            - name: mongo-volume
+            - name: mongo-pvc
               mountPath: /data/db
       volumes:
         - name: mongo-volume
           persistentVolumeClaim:
-            claimName: mongo-volume
+            claimName: mongo-pvc
