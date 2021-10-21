@@ -21,9 +21,9 @@ spec:
             - secretRef:
                 name: mongo-secret
           volumeMounts:
-            - name: mongo-pvc
+            - name: mongo-volume
               mountPath: /data/db
       volumes:
         - name: mongo-volume
-          persistentVolumeClaim:
-            claimName: mongo-pvc
+          hostPath:
+            path: /home/ubuntu/anyflashcards_volume
