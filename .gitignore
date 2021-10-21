@@ -26,7 +26,8 @@ openrc.sh
 *rsa
 *rsa.pub
 internal/
-
+*.asc
+.sops.yml
 
 # Vocabularies
 vocabulary_owsi.csv

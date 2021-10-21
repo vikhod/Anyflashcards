@@ -7,4 +7,6 @@
 # Credentials
 .kube
 *_hosts
+*secret.yml
+
 

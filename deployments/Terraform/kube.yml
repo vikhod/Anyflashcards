@@ -71,6 +71,7 @@
         dest: ~{{ ansible_ssh_user }}/.kube/config
         remote_src: yes
         owner: "{{ ansible_ssh_user }}"
+        group: "{{ ansible_ssh_user }}"
         mode: "u=rw,g=,o="
 
     - name: Replace https://localhost:6443 by https://kube-ip:6443
@@ -117,16 +118,12 @@
         device: /dev/vdc
         number: 1
         state: present
-      tags: 
-        - now
     
     - name: Make file system on /dev/vdc1
       community.general.filesystem:
         fstype: ext4
         dev: /dev/vdc1
         state: present
-      tags: 
-          - now
 
     - name: Create directory for mounting volume
       file:
@@ -135,8 +132,6 @@
         owner: "{{ ansible_ssh_user }}"
         group: "{{ ansible_ssh_user }}"
         mode: '755'
-      tags: 
-        - now
 
     - name: Mount /dev/vdc1 to /anyflashcards_volume
       mount:
@@ -144,10 +139,54 @@
         src: /dev/vdc1
         fstype: ext4
         state: mounted
+
+    - name: Get and install SOPS
+      shell: |
+        SOPS_URL=$(curl -s "https://api.github.com/repos/mozilla/sops/releases/latest" | grep -o "http.*sops_.*_amd64\.deb")
+        wget $SOPS_URL -O ~/sops.deb
+        sudo apt install ~/sops.deb
+      changed_when: true
+
+    - name: Clone branch from Github
+      git:
+        repo: https://github.com/vikhod/Anyflashcards.git
+        dest: ~{{ ansible_ssh_user }}/
+        single_branch: yes
+        version: main #could be version branch if it is production env
+      tags: 
+        - now
+    
+    - name: Copy .asc and .sops files
+      copy: 
+        src: {{ item.src }} 
+        dest: {{ item.dest }}
+        mode: '600'
+      with_items:
+        - { src: '../../af.asc', dest: '~{{ ansible_ssh_user }}/Anyflashcards' }
+        - { src: '../../.sops.yml', dest: '~{{ ansible_ssh_user }}/Anyflashcards' }
       tags: 
         - now
 
-# TODO Move all credentials into eyaml or Ansible vault
+    - name: Import gpg key and decrypt secrets
+      shell: |
+        gpg --import ~{{ ansible_ssh_user }}/Anyflashcards/af.asc
+        sops -d --encrypted-regex '^(data)$' ~{{ ansible_ssh_user }}/Anyflashcards/deployments/k8s/mongo-secret.yml.enc > ~{{ ansible_ssh_user }}/Anyflashcards/deployments/k8s/mongo-secret.yml
+      changed_when: true
+      tags: 
+        - now
 
+
+        
+
+
+# GPG:
+# Export pgp key, with next command:
+# AF_KEY=$(gpg --armor --export-secret-keys DF1DE04F1BF45A11FBF2D700EACB59B213844133
+
+# SOPS:
+# Decrypt all secrets localy, with next command:
+#   sops -e --encrypted-regex '^(data)$' k8s/mongo-secret.yml > k8s/mongo-secret.yml.enc
+
+# TODO Move all credentials into eyaml or Ansible vault
 
 
