@@ -163,12 +163,16 @@
       with_items:
         - { src: '../../af.asc', dest: '~{{ ansible_ssh_user }}/Anyflashcards' }
         - { src: '../../.sops.yml', dest: '~{{ ansible_ssh_user }}/Anyflashcards' }
+      tags: 
+        - now
 
     - name: Import gpg key and decrypt secrets
       shell: |
         gpg --import ~{{ ansible_ssh_user }}/Anyflashcards/af.asc
         sops -d --config ~{{ ansible_ssh_user }}/Anyflashcards/.sops.yml ~{{ ansible_ssh_user }}/Anyflashcards/deployments/k8s/mongo-secret.enc.yml > /home/ubuntu/Anyflashcards/deployments/k8s/mongo-secret.yml
-
+        sops -d --config ~{{ ansible_ssh_user }}/Anyflashcards/.sops.yml ~{{ ansible_ssh_user }}/Anyflashcards/deployments/k8s/express-secret.enc.yml > /home/ubuntu/Anyflashcards/deployments/k8s/express-secret.yml
+      tags: 
+        - now
 
         
 
