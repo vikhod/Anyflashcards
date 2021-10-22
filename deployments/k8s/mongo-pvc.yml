@@ -6,7 +6,7 @@ spec:
   volumeName: anyflashcards-pv
   accessModes:
     - ReadWriteOnce
-  storageClassName: local-storage
+  storageClassName: ""
   resources:
     requests:
       storage: 20Gi
