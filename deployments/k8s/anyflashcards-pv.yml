@@ -13,3 +13,11 @@ spec:
     name: mongo-pvc
   local:
     path: /home/ubuntu/anyflashcards_volume
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: kubernetes.io/hostname
+          operator: In
+          values:
+          - vh-af-kube
