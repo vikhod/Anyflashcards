@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: anyflashcardsbot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: anyflashcardsbot
+  template:
+    metadata:
+      labels:
+        app: anyflashcardsbot
+    spec:
+      containers:
+        - name: anyflashcardsbot
+          image: vikhod/anyflashcardsbot:latest
+          envFrom:
+            - secretRef:
+                name: anyflashcardsbot-secret
