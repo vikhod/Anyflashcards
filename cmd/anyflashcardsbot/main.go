@@ -547,7 +547,9 @@ func showRemind(bot tgbotapi.BotAPI, userId int64) {
 	}
 }
 
-var scheduler gocron.Scheduler // Check nesesarity
+var location, _ = time.LoadLocation("Europe/Kiev")
+var scheduler = *gocron.NewScheduler(location)
+
 func setAllReminds(bot *tgbotapi.BotAPI) {
 
 	var err error
@@ -557,15 +559,10 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 	}
 
 	for userId, remindTime := range remindsChart {
-
-		location, _ := time.LoadLocation("Europe/Kiev")
-		scheduler = *gocron.NewScheduler(location)
-
 		var task = func() { showRemind(*bot, int64(userId)) }
-
+		scheduler.Stop()
 		scheduler.Every(1).Day().At(remindTime).Do(task)
 		scheduler.StartAsync()
-
 	}
 }
 
@@ -584,10 +581,11 @@ Done:
 * TODO Add correct answer into each callback message
 
 In work:
-* TODO Create infrastracture with terraform
-* TODO Create helm chart and run it somewere
+* TODO Fix issue with multi scheduling
+* TODO Fix issue with default dictionary
 
 In plan:
+* TODO Create helm chart and run pron and staging env
 * TODO Add function for download dictionary
 * TODO Add posibiliti for pickDictionary pick private dict without copying
 * TODO Add exeptions into time handler
