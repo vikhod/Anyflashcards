@@ -538,15 +538,6 @@ func readQuality(userId int, calbackQueryData string) int {
 	return quality[userId]
 }
 
-func showRemind(bot tgbotapi.BotAPI, userId int64) {
-
-	msg := tgbotapi.NewMessage(userId, "Time to go! Press `Quiz.`")
-
-	if _, err := bot.Send(msg); err != nil {
-		log.Panic(err)
-	}
-}
-
 var location, _ = time.LoadLocation("Europe/Kiev")
 var scheduler = *gocron.NewScheduler(location)
 
@@ -558,11 +549,21 @@ func setAllReminds(bot *tgbotapi.BotAPI) {
 		log.Panic(err)
 	}
 
+	scheduler.Stop()
+	scheduler.Clear()
+
 	for userId, remindTime := range remindsChart {
-		var task = func() { showRemind(*bot, int64(userId)) }
-		scheduler.Stop()
-		scheduler.Every(1).Day().At(remindTime).Do(task)
-		scheduler.StartAsync()
+		scheduler.Every(1).Day().Tag().At(remindTime).Do(showRemind, *bot, int64(userId))
+	}
+
+	scheduler.StartAsync()
+}
+
+func showRemind(bot tgbotapi.BotAPI, userId int64) {
+
+	msg := tgbotapi.NewMessage(userId, "Time to go! Press `Quiz.`")
+	if _, err := bot.Send(msg); err != nil {
+		log.Panic(err)
 	}
 }
 
@@ -579,13 +580,14 @@ Done:
 * TODO Add function chouse dictionary - need to be repaired
 * TODO Add showing available dictionaries for user (and public and his private)
 * TODO Add correct answer into each callback message
-
-In work:
 * TODO Fix issue with multi scheduling
 * TODO Fix issue with default dictionary
 
+In work:
+* TODO Create two environement, prod and staging
+
 In plan:
-* TODO Create helm chart and run pron and staging env
+* TODO Create helm chart and helmfile
 * TODO Add function for download dictionary
 * TODO Add posibiliti for pickDictionary pick private dict without copying
 * TODO Add exeptions into time handler
